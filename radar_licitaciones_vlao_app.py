@@ -10,7 +10,7 @@ import streamlit as st
 # CONFIGURACIÓN DE PÁGINA Y ESTILOS DE STREAMLIT
 # ==============================================================================
 st.set_page_config(
-    page_title="Radar SECOP II v16.6 - VLAO INGENIERÍA S.A.S.",
+    page_title="Radar SECOP II v16.0 - VLAO INGENIERÍA S.A.S.",
     layout="wide",
     page_icon="🎯"
 )
@@ -37,8 +37,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 16.6</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (Filtros Múltiples de Ciudad, Departamento y Etapa)</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 16.7</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (URLs directas SECOP II + Filtros Múltiples de Ubicación y Etapa)</div>', unsafe_allow_html=True)
 
 # ==============================================================================
 # DICCIONARIOS DE SECTORES, MODALIDADES Y ESTADOS
@@ -76,7 +76,7 @@ ESTADOS_SODA = {
 }
 
 # ==============================================================================
-# FUNCIONES AUXILIARES: NORMALIZACIÓN, FORMATOS Y FECHAS
+# FUNCIONES AUXILIARES: NORMALIZACIÓN, FORMATOS, URLS Y FECHAS
 # ==============================================================================
 def normalizar_texto(texto):
     """Elimina acentos, tildes y caracteres especiales para búsquedas exactas."""
@@ -96,6 +96,29 @@ def formato_pesos_cop(valor):
         return f"$ {val:,.0f} COP".replace(",", ".")
     except Exception:
         return "$ 0 COP"
+
+def limpiar_url_secop(val):
+    """
+    Extrae la URL limpia en formato texto string (http/https).
+    Socrata SODA API devuelve urlproceso como dict {'url': 'https://...'}
+    Esta función desempaqueta el diccionario para entregar una URL directamente navegable.
+    """
+    if pd.isna(val) or not val:
+        return ""
+    if isinstance(val, dict):
+        return str(val.get('url', '')).strip()
+    val_str = str(val).strip()
+    if val_str.startswith("{") and ("'url':" in val_str or '"url":' in val_str):
+        import ast
+        try:
+            d = ast.literal_eval(val_str)
+            if isinstance(d, dict):
+                return str(d.get('url', '')).strip()
+        except Exception:
+            pass
+    if val_str.startswith("http://") or val_str.startswith("https://"):
+        return val_str
+    return ""
 
 def parsear_fecha_secop(val):
     """
@@ -123,13 +146,10 @@ def parsear_fecha_secop(val):
     return pd.NaT, val_str[:10] if len(val_str) >= 10 else val_str
 
 # ==============================================================================
-# DESCARGA DE DATOS DESDE SODA API
+# DESCARGA DE DATOS DESDE SODA API CON PARSEO DE URLS
 # ==============================================================================
 @st.cache_data(ttl=300)
 def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TODAS", estado_codigo="TODOS", limite=5000):
-    """
-    Realiza la consulta directa a la API SODA de Colombia Compra Eficiente.
-    """
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     fecha_hace_60_dias = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%dT00:00:00")
     
@@ -192,7 +212,7 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TO
         resp = requests.get(url, headers=headers, timeout=35)
         resp.raise_for_status()
         data = resp.json()
-    except Exception as e:
+    except Exception:
         conds_fb = [f"fecha_de_publicacion >= '{fecha_hace_60_dias}'"]
         if modalidad_codigo != "TODAS":
             if modalidad_codigo == "LICITACION":
@@ -216,6 +236,13 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TO
     df = pd.DataFrame(data)
     
     if not df.empty:
+        # Limpieza crucial de URL SECOP II
+        if 'urlproceso' in df.columns:
+            df['urlproceso'] = df['urlproceso'].apply(limpiar_url_secop)
+        else:
+            df['urlproceso'] = ""
+
+        # Precios
         if 'precio_base' in df.columns:
             df['precio_num'] = pd.to_numeric(df['precio_base'], errors='coerce').fillna(0)
             df['precio_formateado'] = df['precio_num'].apply(formato_pesos_cop)
@@ -223,6 +250,7 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TO
             df['precio_num'] = 0
             df['precio_formateado'] = "$ 0 COP"
             
+        # Fecha de Publicación
         if 'fecha_de_publicacion' in df.columns:
             res_pub = [parsear_fecha_secop(v) for v in df['fecha_de_publicacion']]
             df['fecha_pub_dt'] = [r[0] for r in res_pub]
@@ -231,6 +259,7 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TO
             df['fecha_pub_dt'] = pd.NaT
             df['fecha_pub_clean'] = "Por definir"
             
+        # Fecha Cierre de Ofertas
         if 'fecha_de_recepcion_de' in df.columns:
             res_cie = [parsear_fecha_secop(v) for v in df['fecha_de_recepcion_de']]
             df['fecha_cierre_clean'] = [r[1] if r[1] != "Por definir" else "Por definir en pliegos" for r in res_cie]
@@ -268,7 +297,7 @@ def exportar_df_a_excel(df_filtrado):
     return buffer.getvalue()
 
 # ==============================================================================
-# BARRA LATERAL (SIDEBAR) CON FILTROS
+# BARRA LATERAL (SIDEBAR) CON FILTROS MÚLTIPLES
 # ==============================================================================
 st.sidebar.header("⚙️ Filtros Inteligentes SECOP II")
 
@@ -289,9 +318,9 @@ modalidad_sel = st.sidebar.selectbox(
 )
 codigo_modalidad = MODALIDADES_SODA[modalidad_sel]
 
-# 4. Estado / Etapa del Proceso (Filtro en API)
+# 4. Estado / Etapa del Proceso
 estado_sel = st.sidebar.selectbox(
-    "📌 Etapa / Estado del Proceso (SODA API):",
+    "📌 Etapa / Estado del Proceso (Filtro API):",
     options=list(ESTADOS_SODA.keys())
 )
 codigo_estado = ESTADOS_SODA[estado_sel]
@@ -322,7 +351,7 @@ with st.spinner("🚀 Consultando base nacional de SECOP II (Datos Abiertos Colo
 if not df_raw.empty:
     df = df_raw.copy()
 
-    # Filtrado complementario de seguridad en Pandas para UNSPSC exactas
+    # Filtrado complementario de seguridad en Pandas
     if codigo_sector != "TODOS":
         cods = codigo_sector.split('|')
         def coincide_unspsc(val):
@@ -350,88 +379,53 @@ if not df_raw.empty:
         limite_pesos = monto_minimo_m * 1000000
         df = df[df['precio_num'] >= limite_pesos]
 
-    # 6. FILTRO MÚLTIPLE DE ETAPA / ESTADO DEL PROCESO EN PANDAS
+    # ---------------------------------------------------------
+    # FILTROS MÚLTIPLES AVANZADOS (CIUDAD, DEPARTAMENTO Y ETAPAS)
+    # ---------------------------------------------------------
     st.sidebar.markdown("---")
     st.sidebar.subheader("🎯 Filtros Múltiples Locales")
-    
-    if 'estado_resumen' in df.columns:
-        estados_unicos = sorted([str(e).strip() for e in df['estado_resumen'].dropna().unique() if str(e).strip()])
-        conteo_est_map = df['estado_resumen'].value_counts().to_dict()
-        opciones_est_mult = [f"{est} ({conteo_est_map.get(est, 0)})" for est in estados_unicos]
-        mapa_est_reverso = {f"{est} ({conteo_est_map.get(est, 0)})": est for est in estados_unicos}
-        
-        estados_seleccionados_fmt = st.sidebar.multiselect(
-            "📌 Selección Múltiple de Etapas / Estados:",
-            options=opciones_est_mult,
-            default=[],
-            help="Puedes seleccionar varias etapas simultáneamente (ej: Presentación de Ofertas, Borrador)."
-        )
-        if estados_seleccionados_fmt:
-            estados_reales = [mapa_est_reverso[fmt] for fmt in estados_seleccionados_fmt]
-            df = df[df['estado_resumen'].isin(estados_reales)]
 
-    # 7. FILTRO MÚLTIPLE DE UBICACIÓN: DEPARTAMENTOS Y CIUDADES / MUNICIPIOS
+    # A. Filtro Múltiple por Etapa / Estado del Proceso
+    if 'estado_resumen' in df.columns:
+        estados_unicos = sorted([e for e in df['estado_resumen'].dropna().unique() if e])
+        estados_sel_multi = st.sidebar.multiselect(
+            "📌 Filtrar por una o varias Etapas / Estados:",
+            options=estados_unicos,
+            default=[],
+            help="Selecciona una o varias etapas para acotar la lista."
+        )
+        if estados_sel_multi:
+            df = df[df['estado_resumen'].isin(estados_sel_multi)]
+
+    # B. Filtro Múltiple por Departamento
     if 'departamento_entidad' in df.columns:
-        dptos_unicos = sorted([str(d).strip().title() for d in df['departamento_entidad'].dropna().unique() if str(d).strip()])
-        dptos_seleccionados = st.sidebar.multiselect(
-            "📍 Seleccionar Departamento(s):",
+        dptos_unicos = sorted([d for d in df['departamento_entidad'].dropna().unique() if d])
+        dptos_sel_multi = st.sidebar.multiselect(
+            "🗺️ Departamento(s):",
             options=dptos_unicos,
             default=[],
-            help="Selecciona uno o más departamentos para acotar geográficamente."
+            help="Puedes seleccionar varios departamentos al mismo tiempo."
         )
-        if dptos_seleccionados:
-            dptos_norm = [normalizar_texto(d) for d in dptos_seleccionados]
-            df = df[df['departamento_entidad'].apply(normalizar_texto).isin(dptos_norm)]
+        if dptos_sel_multi:
+            df = df[df['departamento_entidad'].isin(dptos_sel_multi)]
 
+    # C. Filtro Múltiple por Ciudad / Municipio
     if 'ciudad_entidad' in df.columns:
-        ciudades_unicas = sorted([str(c).strip().title() for c in df['ciudad_entidad'].dropna().unique() if str(c).strip()])
-        ciudades_seleccionadas = st.sidebar.multiselect(
-            "🏙️ Seleccionar Ciudad(es) / Municipio(s):",
+        ciudades_unicas = sorted([c for c in df['ciudad_entidad'].dropna().unique() if c])
+        ciudades_sel_multi = st.sidebar.multiselect(
+            "📍 Ciudad(es) / Municipio(s):",
             options=ciudades_unicas,
             default=[],
-            help="Selecciona uno o varios municipios simultáneamente."
+            help="Permite elegir uno o múltiples municipios."
         )
-        if ciudades_seleccionadas:
-            ciudades_norm = [normalizar_texto(c) for c in ciudades_seleccionadas]
-            df = df[df['ciudad_entidad'].apply(normalizar_texto).isin(ciudades_norm)]
+        if ciudades_sel_multi:
+            df = df[df['ciudad_entidad'].isin(ciudades_sel_multi)]
 
-    # Búsqueda manual rápida por ubicación (Texto libre alternativo)
-    ciudad_query = st.sidebar.text_input(
-        "🔎 Búsqueda Rápida de Ubicación (Texto Libre):",
-        "",
-        placeholder="Ej: Bogota, Neiva, Huila, Cundinamarca..."
-    )
-    if ciudad_query.strip():
-        q_norm = normalizar_texto(ciudad_query)
-        df = df[
-            df['ciudad_entidad'].apply(normalizar_texto).str.contains(q_norm) |
-            df['departamento_entidad'].apply(normalizar_texto).str.contains(q_norm)
-        ]
-
-    # 8. Filtro Anti-OPS
-    incluir_cd_inteligente = st.sidebar.checkbox(
-        "🛡️ Filtro Anti-OPS (Excluir Contratación Directa de Personas Naturales)",
-        value=False,
-        help="Elimina prestación de servicios profesionales individuales."
-    )
-    if incluir_cd_inteligente and 'modalidad_de_contratacion' in df.columns and 'nombre_del_procedimiento' in df.columns:
-        palabras_ops = ['prestacion de servicios', 'honorarios', 'apoyo a la gestion', 'persona natural', 'ops']
-        
-        def es_ops(row):
-            mod = str(row.get('modalidad_de_contratacion', '')).lower()
-            nom = normalizar_texto(row.get('nombre_del_procedimiento', ''))
-            if 'directa' in mod:
-                if any(p in nom for p in palabras_ops):
-                    return True
-            return False
-
-        df = df[~df.apply(es_ops, axis=1)]
-
-    # 9. Búsqueda por Palabra Clave Libre
+    # D. Búsqueda Libre por Palabra Clave
     palabra_clave = st.sidebar.text_input(
         "🔎 Palabra Clave en Objeto:",
         "",
-        placeholder="Ej: cubierta, impermeabilizacion, red electrica, pintura..."
+        placeholder="Ej: cubierta, impermeabilizacion, red electrica..."
     )
     if palabra_clave.strip():
         kw_norm = normalizar_texto(palabra_clave)
@@ -501,4 +495,4 @@ if not df_raw.empty:
     )
 
 else:
-    st.warning("⚠️ No se encontraron resultados con la combinación actual. Si deseas ampliar el espectro, ajusta o borra algunos de los filtros en la barra lateral.")
+    st.warning("⚠️ No se encontraron resultados con los filtros actuales. Te sugerimos ampliar los sectores o eliminar palabras clave.")
