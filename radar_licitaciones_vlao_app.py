@@ -2,19 +2,20 @@ import streamlit as st
 import pandas as pd
 import requests
 import urllib.parse
+import unicodedata
 from datetime import datetime, timedelta
 
 # Configuración de página
 st.set_page_config(
-    page_title="Radar SECOP II v7 - Todas las Modalidades",
+    page_title="Radar SECOP II v9 - Filtros por Ciudad y Entidad",
     layout="wide",
     page_icon="🎯"
 )
 
-st.title("🎯 Radar Quirúrgico SECOP II - Versión 7.0 (Todas las Modalidades del Estado)")
+st.title("🎯 Radar Quirúrgico SECOP II - Versión 9.0 (Filtros por Ciudad, Municipio y Entidad)")
 st.markdown("""
-**Buscador Integral sobre la Base Nacional del SECOP II (Datos Abiertos Colombia).**  
-*Configurado para incluir el **100% de las modalidades de contratación pública** sin dejar ningún proceso por fuera.*
+**Buscador Especializado sobre la Base Nacional del SECOP II (Datos Abiertos Colombia).**  
+*Ahora con filtros directos por **Ciudad / Municipio**, **Entidad Compradora** y herramientas de filtrado rápido en la tabla.*
 """)
 
 # Sidebar - Filtros de Búsqueda
@@ -27,7 +28,21 @@ palabra_clave = st.sidebar.text_input(
     placeholder="Ej: cubierta, ferreteria, mantenimiento, impermeabilizacion, suministro..."
 )
 
-# 2. Ventana de Tiempo
+# 2. Filtro por Ciudad / Municipio
+ciudad_filtro = st.sidebar.text_input(
+    "📍 Ciudad / Municipio:",
+    "",
+    placeholder="Ej: Bogota, Medellin, Cali, Bucaramanga, Neiva, Villavicencio..."
+)
+
+# 3. Filtro por Entidad Compradora
+entidad_filtro = st.sidebar.text_input(
+    "🏛️ Entidad Compradora:",
+    "",
+    placeholder="Ej: SENA, Alcaldia, Gobernacion, Ejercito, Hospital, ICBF..."
+)
+
+# 4. Ventana de Tiempo
 periodo = st.sidebar.selectbox(
     "📅 Ventana de Tiempo (Fecha de Publicación):",
     [
@@ -39,7 +54,7 @@ periodo = st.sidebar.selectbox(
     ]
 )
 
-# 3. Modalidades completas del SECOP II / Colombia Compra Eficiente
+# 5. Modalidades completas del SECOP II / Colombia Compra Eficiente
 MODALIDADES_SECOP = {
     "🌐 Todas las Modalidades (Sin Restricción - 100% del SECOP II)": "TODAS",
     "⚡ Mínima Cuantía (Sin RUP - Art. 2 Ley 1150/2007)": "MINIMA",
@@ -56,7 +71,7 @@ filtro_rup = st.sidebar.selectbox(
     options=list(MODALIDADES_SECOP.keys())
 )
 
-# 4. Categorías UNSPSC
+# 6. Categorías UNSPSC
 CATEGORIAS_UNSPSC = {
     "🌐 Todos los Sectores (Sin Restricción)": "TODOS",
     "🛠️ Ferretería y Herrajes (3116)": "3116",
@@ -77,15 +92,28 @@ sector_sel = st.sidebar.selectbox(
     options=list(CATEGORIAS_UNSPSC.keys())
 )
 
-# 5. Cantidad de resultados máximos
+# 7. Cantidad de resultados máximos a consultar
 limite = st.sidebar.slider("📊 Cantidad máxima de registros a extraer:", 100, 3000, 1500, 100)
 
 # ---------------------------------------------------------
-# FUNCION DE CONSULTA SoQL AMPLIADA
+# FUNCIONES AUXILIARES DE NORMALIZACION DE TEXTO
+# ---------------------------------------------------------
+
+def normalizar_texto(texto):
+    """Elimina acentos/tildes y convierte a minúsculas para comparaciones perfectas."""
+    if not texto:
+        return ""
+    texto_str = str(texto)
+    nfkd = unicodedata.normalize('NFD', texto_str)
+    sin_tildes = "".join([c for c in nfkd if unicodedata.category(c) != 'Mn'])
+    return sin_tildes.lower()
+
+# ---------------------------------------------------------
+# FUNCION DE CONSULTA SoQL CON FILTROS DE CIUDAD Y ENTIDAD
 # ---------------------------------------------------------
 
 @st.cache_data(ttl=300)
-def consultar_secop_v7(periodo_sel, rup_nombre, sector_nombre, kw_texto, max_rows):
+def consultar_secop_v9(periodo_sel, rup_nombre, sector_nombre, kw_texto, ciudad_txt, entidad_txt, max_rows):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     select_cols = "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,estado_resumen,fecha_de_publicacion,fecha_de_recepcion_de,urlproceso"
     
@@ -93,10 +121,20 @@ def consultar_secop_v7(periodo_sel, rup_nombre, sector_nombre, kw_texto, max_row
     
     # A. Palabra clave
     if kw_texto.strip():
-        kw_clean = kw_texto.lower().strip()
+        kw_clean = normalizar_texto(kw_texto)
         where_clauses.append(f"(lower(nombre_del_procedimiento) like '%{kw_clean}%' OR lower(descripci_n_del_procedimiento) like '%{kw_clean}%')")
     
-    # B. Fecha
+    # B. Ciudad / Municipio
+    if ciudad_txt.strip():
+        ciu_clean = normalizar_texto(ciudad_txt)
+        where_clauses.append(f"(lower(ciudad_entidad) like '%{ciu_clean}%' OR lower(departamento_entidad) like '%{ciu_clean}%')")
+
+    # C. Entidad Compradora
+    if entidad_txt.strip():
+        ent_clean = normalizar_texto(entidad_txt)
+        where_clauses.append(f"(lower(entidad) like '%{ent_clean}%')")
+
+    # D. Fecha
     now = datetime.now()
     if "30 Días" in periodo_sel:
         f_lim = (now - timedelta(days=30)).strftime("%Y-%m-%dT00:00:00.000")
@@ -110,16 +148,16 @@ def consultar_secop_v7(periodo_sel, rup_nombre, sector_nombre, kw_texto, max_row
     elif "Año 2026" in periodo_sel:
         where_clauses.append("fecha_de_publicacion >= '2026-01-01T00:00:00.000'")
 
-    # C. Modalidad SoQL
+    # E. Modalidad SoQL
     mod_code = MODALIDADES_SECOP[rup_nombre]
     if mod_code == "MINIMA":
-        where_clauses.append("(lower(modalidad_de_contratacion) like '%nima%' OR lower(modalidad_de_contratacion) like '%cuanti%')")
+        where_clauses.append("(lower(modalidad_de_contratacion) like '%m%nima%' OR lower(modalidad_de_contratacion) like '%cuant%a%')")
     elif mod_code == "ABREVIADA":
-        where_clauses.append("(lower(modalidad_de_contratacion) like '%abreviada%' OR lower(modalidad_de_contratacion) like '%subasta%')")
+        where_clauses.append("(lower(modalidad_de_contratacion) like '%abreviada%' OR lower(modalidad_de_contratacion) like '%selecci%n%')")
     elif mod_code == "LICITACION":
-        where_clauses.append("(lower(modalidad_de_contratacion) like '%licita%')")
+        where_clauses.append("(lower(modalidad_de_contratacion) like '%licitaci%n%' OR lower(modalidad_de_contratacion) like '%licita%')")
     elif mod_code == "CONCURSO":
-        where_clauses.append("(lower(modalidad_de_contratacion) like '%concurso%' OR lower(modalidad_de_contratacion) like '%rito%')")
+        where_clauses.append("(lower(modalidad_de_contratacion) like '%concurso%' OR lower(modalidad_de_contratacion) like '%m%ritos%')")
     elif mod_code == "DIRECTA":
         where_clauses.append("(lower(modalidad_de_contratacion) like '%directa%')")
     elif mod_code == "REGIMEN_ESPECIAL":
@@ -127,7 +165,7 @@ def consultar_secop_v7(periodo_sel, rup_nombre, sector_nombre, kw_texto, max_row
     elif mod_code == "ACUERDO_MARCO":
         where_clauses.append("(lower(modalidad_de_contratacion) like '%marco%' OR lower(modalidad_de_contratacion) like '%tienda%')")
 
-    # D. Categoría UNSPSC
+    # F. Categoría UNSPSC
     cod_cat = CATEGORIAS_UNSPSC[sector_nombre]
     if cod_cat != "TODOS":
         where_clauses.append(f"(codigo_principal_de_categoria like '%{cod_cat}%')")
@@ -166,34 +204,87 @@ def consultar_secop_v7(periodo_sel, rup_nombre, sector_nombre, kw_texto, max_row
     return df
 
 # Ejecutar consulta
-with st.spinner("🚀 Escaneando la base nacional del SECOP II para todas las modalidades..."):
+with st.spinner("🚀 Consultando la base nacional del SECOP II en tiempo real..."):
     try:
-        df = consultar_secop_v7(periodo, filtro_rup, sector_sel, palabra_clave, limite)
+        df = consultar_secop_v9(periodo, filtro_rup, sector_sel, palabra_clave, ciudad_filtro, entidad_filtro, limite)
     except Exception as e:
         st.error(f"Error técnico al consultar el servidor de Datos Abiertos: {e}")
         df = pd.DataFrame()
 
 # ---------------------------------------------------------
-# DESPLIEGUE DE RESULTADOS
+# NORMALIZACION Y FILTRADO SECUNDARIO
 # ---------------------------------------------------------
 
 if not df.empty:
-    st.success(f"✅ Se encontraron **{len(df):,}** procesos en el SECOP II abarcando todas las modalidades configuradas.")
+    mod_code = MODALIDADES_SECOP[filtro_rup]
     
+    if mod_code != "TODAS" and 'modalidad_de_contratacion' in df.columns:
+        df['mod_norm'] = df['modalidad_de_contratacion'].apply(normalizar_texto)
+        
+        if mod_code == "MINIMA":
+            df = df[df['mod_norm'].str.contains('minima|cuantia', na=False)]
+        elif mod_code == "LICITACION":
+            df = df[df['mod_norm'].str.contains('licitacion|licitacion publica', na=False)]
+        elif mod_code == "ABREVIADA":
+            df = df[df['mod_norm'].str.contains('abreviada|subasta|menor cuantia', na=False)]
+        elif mod_code == "CONCURSO":
+            df = df[df['mod_norm'].str.contains('concurso|meritos', na=False)]
+        elif mod_code == "DIRECTA":
+            df = df[df['mod_norm'].str.contains('directa', na=False)]
+        elif mod_code == "REGIMEN_ESPECIAL":
+            df = df[df['mod_norm'].str.contains('especial|regimen', na=False)]
+        elif mod_code == "ACUERDO_MARCO":
+            df = df[df['mod_norm'].str.contains('marco|tienda', na=False)]
+
+# ---------------------------------------------------------
+# DESPLIEGUE Y FILTROS INTERACTIVOS EN PANTALLA
+# ---------------------------------------------------------
+
+if not df.empty:
+    st.success(f"✅ Se encontraron **{len(df):,}** licitaciones que coinciden con tus filtros.")
+    
+    # Tarjetas métricas
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Oportunidades Encontradas", f"{len(df):,}")
     with col2:
         st.metric("Bolsa Total Presupuestada ($)", f"${df['precio_base'].sum():,.0f} COP")
     with col3:
-        mod_top = df['modalidad_de_contratacion'].value_counts().index[0] if ('modalidad_de_contratacion' in df.columns and not df.empty) else "N/A"
-        st.metric("Modalidad Principal", f"{mod_top[:25]}...")
+        ciud_top = df['ciudad_entidad'].value_counts().index[0] if ('ciudad_entidad' in df.columns and not df.empty) else "N/A"
+        st.metric("Ciudad Líder", f"{ciud_top}")
     with col4:
-        dep_top = df['departamento_entidad'].value_counts().index[0] if ('departamento_entidad' in df.columns and not df.empty) else "N/A"
-        st.metric("Departamento Líder", f"{dep_top}")
+        ent_top = df['entidad'].value_counts().index[0] if ('entidad' in df.columns and not df.empty) else "N/A"
+        st.metric("Entidad Principal", f"{ent_top[:22]}...")
 
     st.markdown("---")
-    st.subheader("📋 Listado de Procesos del SECOP II")
+    
+    # FILTROS RÁPIDOS SOBRE EL CUADRO
+    st.subheader("🔍 Filtros Rápido sobre la Tabla de Resultados")
+    f_col1, f_col2, f_col3 = st.columns(3)
+    
+    with f_col1:
+        ciudades_disp = sorted(df['ciudad_entidad'].dropna().unique()) if 'ciudad_entidad' in df.columns else []
+        sel_ciudades = st.multiselect("📍 Filtrar por Ciudad/Municipio:", options=ciudades_disp, default=[])
+        
+    with f_col2:
+        deptos_disp = sorted(df['departamento_entidad'].dropna().unique()) if 'departamento_entidad' in df.columns else []
+        sel_deptos = st.multiselect("🗺️ Filtrar por Departamento:", options=deptos_disp, default=[])
+
+    with f_col3:
+        entidades_disp = sorted(df['entidad'].dropna().unique()) if 'entidad' in df.columns else []
+        sel_entidades = st.multiselect("🏛️ Filtrar por Entidad Compradora:", options=entidades_disp, default=[])
+
+    # Aplicar filtros en pantalla
+    df_filtrado = df.copy()
+    if sel_ciudades:
+        df_filtrado = df_filtrado[df_filtrado['ciudad_entidad'].isin(sel_ciudades)]
+    if sel_deptos:
+        df_filtrado = df_filtrado[df_filtrado['departamento_entidad'].isin(sel_deptos)]
+    if sel_entidades:
+        df_filtrado = df_filtrado[df_filtrado['entidad'].isin(sel_entidades)]
+
+    st.markdown("---")
+    st.subheader("📋 Listado Detallado de Procesos del SECOP II")
 
     def extraer_url(val):
         if isinstance(val, dict):
@@ -203,7 +294,7 @@ if not df.empty:
             return val_str
         return ''
 
-    data_display = df.copy()
+    data_display = df_filtrado.copy()
     if 'urlproceso' in data_display.columns:
         data_display['url_clean'] = data_display['urlproceso'].apply(extraer_url)
     else:
@@ -212,6 +303,7 @@ if not df.empty:
     cols_map = {
         'referencia_del_proceso': 'Proceso',
         'entidad': 'Entidad Compradora',
+        'ciudad_entidad': 'Ciudad / Municipio',
         'departamento_entidad': 'Departamento',
         'modalidad_de_contratacion': 'Modalidad',
         'estado_resumen': 'Estado',
@@ -237,16 +329,15 @@ if not df.empty:
 
     csv_data = data_final.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="📥 Descargar Reporte Completo en CSV / Excel",
+        label="📥 Descargar Reporte Filtrado en CSV / Excel",
         data=csv_data,
-        file_name=f"Radar_SECOP_v7_{datetime.now().strftime('%Y%m%d')}.csv",
+        file_name=f"Radar_SECOP_v9_{datetime.now().strftime('%Y%m%d')}.csv",
         mime="text/csv"
     )
 else:
-    st.warning(f"⚠️ No se encontraron procesos que coincidan con la combinación exacta de búsqueda.")
+    st.warning("⚠️ No se encontraron procesos vigentes con la combinación de filtros seleccionada.")
     st.info("""
-    💡 **Recomendación para abarcar más procesos:**
-    * Mantén seleccionada la opción **'🌐 Todas las Modalidades (Sin Restricción - 100% del SECOP II)'**.
-    * Usa **'Todos los procesos recientes (Recomendado)'** en la ventana de tiempo.
-    * Borra la palabra clave o prueba con un término más amplio como **'suministro'**, **'mantenimiento'**, **'servicio'** o **'compra'**.
+    💡 **Sugerencia:**
+    * Si escribiste una ciudad específica en la barra lateral (ej: *Bogota*), intenta dejarla en blanco y usar los **desplegables sobre la tabla** para filtrar ciudades interactivamente.
+    * Amplía la ventana de tiempo a **'Todos los procesos recientes'**.
     """)
