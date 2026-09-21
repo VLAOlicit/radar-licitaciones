@@ -10,7 +10,7 @@ import streamlit as st
 # CONFIGURACIÓN DE PÁGINA Y ESTILOS
 # ==============================================================================
 st.set_page_config(
-    page_title="Radar SECOP II v17.0 - VLAO INGENIERÍA S.A.S.",
+    page_title="Radar SECOP II v18.0 - VLAO INGENIERÍA S.A.S.",
     layout="wide",
     page_icon="🎯"
 )
@@ -26,7 +26,7 @@ st.markdown("""
     .sub-title {
         font-size: 1.05rem;
         color: #4B5563;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
     }
     .stMetric {
         background-color: #F8FAFC;
@@ -35,49 +35,56 @@ st.markdown("""
         border-left: 4px solid #1E3A8A;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
-    .urgency-red {
-        color: #DC2626;
-        font-weight: bold;
+    .opportunity-card {
+        background-color: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-left: 5px solid #2563EB;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
     }
-    .urgency-yellow {
-        color: #D97706;
-        font-weight: bold;
+    .card-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1E293B;
     }
-    .urgency-green {
-        color: #059669;
-        font-weight: bold;
+    .card-badge {
+        background-color: #EFF6FF;
+        color: #1D4ED8;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">🎯 Radar Inteligente SECOP II - Versión 17.0</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Centro de Inteligencia de Negocios y Licimétrica Comercial</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🎯 Radar de Alta Especificidad SECOP II - Versión 18.0</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo de Oportunidades Concretas y Filtrado Quirúrgico</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# DICCIONARIOS Y CONFIGURACIONES DE VLAO INGENIERÍA S.A.S.
+# DICCIONARIOS Y ESPECIALIDADES ESTRATÉGICAS VLAO INGENIERÍA S.A.S.
 # ==============================================================================
-CATEGORIAS_UNSPSC = {
-    "🌐 Portafolio Completo VLAO": "TODOS",
-    "🏗️ Obras Civiles, Edificaciones y Mantenimiento (7210 / 7212 / 7214 / 7215)": "7210|7212|7214|7215",
-    "⚡ Equipos, Materiales Eléctricos e Iluminación (3912 / 3911 / 2612)": "3912|3911|2612",
-    "🛠️ Ferretería, Herrajes y Construcción (3116 / 3010)": "3116|3010",
-    "🔧 Herramientas de Mano y Maquinaria (2711 / 2510)": "2711|2510",
-    "🎨 Pinturas, Acabados e Impermeabilización (3121 / 3015)": "3121|3015",
-    "🚰 Tuberías, Plomería y Sanitarios (4014 / 4017 / 3018)": "4014|4017|3018",
-    "📐 Consultoría, Diseños e Interventoría (8110 / 8010)": "8110|8010"
+ESPECIALIDADES_VLAO = {
+    "🌐 Portafolio Estratégico Completo VLAO": "TODOS",
+    "🏗️ Obras Civiles y Edificaciones (Mantenimiento, Remodelación, Estructuras)": "7212|7214|7210|7215",
+    "⚡ Redes Eléctricas e Iluminación (Subestaciones, Iluminación LED, Cableado)": "3912|3911|2612",
+    "🎨 Impermeabilización, Pinturas, Aislamientos y Cubiertas": "3121|3015",
+    "🚰 Redes Hidrosanitarias, Tuberías y Plomería": "4014|4017|3018",
+    "📐 Consultoría, Diseños, Estudios e Interventoría de Ingeniería": "8110|8010",
+    "🛠️ Ferretería, Equipos y Suministros Técnicos": "3116|3010|2711|2510"
 }
 
 SECTORES_VLAO_SEGMENTOS = ['72', '39', '31', '30', '40', '81', '80', '27', '25']
-SECTORES_VLAO_EXACTOS = ['3116', '3010', '2711', '2510', '3912', '3911', '2612', '3121', '3015', '4014', '4017', '3018', '7210', '7212', '7214', '7215', '8110', '8010']
 
 MODALIDADES_SODA = {
-    "🌐 Todas las Modalidades": "TODAS",
+    "🌐 Todas las Modalidades Competitivas": "COMPETITIVAS",
     "🏛️ Licitación Pública": "LICITACION",
     "📋 Selección Abreviada (Menor Cuantía / Subasta)": "ABREVIADA",
     "⚡ Mínima Cuantía": "MINIMA",
     "🎓 Concurso de Méritos": "CONCURSO",
-    "📑 Contratación Directa": "DIRECTA",
-    "🏢 Régimen Especial": "REGIMEN_ESPECIAL"
+    "📑 Todas las Modalidades (Incluye Contratación Directa)": "TODAS"
 }
 
 # ==============================================================================
@@ -137,10 +144,10 @@ def parsear_fecha_secop(val):
     return pd.NaT, val_str[:10] if len(val_str) >= 10 else val_str
 
 # ==============================================================================
-# CONEXIÓN A DATOS ABIERTOS (SODA API CON FECHA_DE_PUBLICACION_DEL)
+# CONEXIÓN Y DESCARGA FILTRADA EN SERVIDOR (SODA API - DATOS.GOV.CO)
 # ==============================================================================
 @st.cache_data(ttl=300)
-def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TODAS", limite=5000):
+def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="COMPETITIVAS", limite=5000):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     fecha_hace_60_dias = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%dT00:00:00")
     
@@ -152,9 +159,10 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TO
         "fecha_de_recepcion_de,urlproceso"
     )
     
-    # IMPORTANTE: Usamos fecha_de_publicacion_del para traer la fecha general sin sesgar a Manifestación de Interés
+    # Usamos fecha_de_publicacion_del para traer publicaciones generales
     condiciones = [f"fecha_de_publicacion_del >= '{fecha_hace_60_dias}'"]
     
+    # Filtro por códigos UNSPSC de VLAO
     if sector_codigo != "TODOS":
         codigos = sector_codigo.split('|')
         sub_c = [f"codigo_principal_de_categoria like '%{c}%'" for c in codigos]
@@ -163,22 +171,23 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TO
         sub_c = [f"codigo_principal_de_categoria like '%{s}%'" for s in SECTORES_VLAO_SEGMENTOS]
         condiciones.append(f"({' OR '.join(sub_c)})")
 
-    if modalidad_codigo == "LICITACION":
-        condiciones.append("(modalidad_de_contratacion like '%Licitaci%' or modalidad_de_contratacion like '%licitaci%')")
+    # Modalidades
+    if modalidad_codigo == "COMPETITIVAS":
+        condiciones.append("(lower(modalidad_de_contratacion) not like '%directa%')")
+    elif modalidad_codigo == "LICITACION":
+        condiciones.append("(lower(modalidad_de_contratacion) like '%licitac%')")
     elif modalidad_codigo == "ABREVIADA":
-        condiciones.append("(modalidad_de_contratacion like '%Abreviada%' or modalidad_de_contratacion like '%abreviada%')")
+        condiciones.append("(lower(modalidad_de_contratacion) like '%abreviad%')")
     elif modalidad_codigo == "MINIMA":
-        condiciones.append("(modalidad_de_contratacion like '%mínima%' or modalidad_de_contratacion like '%minima%')")
+        condiciones.append("(lower(modalidad_de_contratacion) like '%minima%' or lower(modalidad_de_contratacion) like '%mínima%')")
     elif modalidad_codigo == "CONCURSO":
-        condiciones.append("(modalidad_de_contratacion like '%Concurso%' or modalidad_de_contratacion like '%concurso%')")
-    elif modalidad_codigo == "DIRECTA":
-        condiciones.append("(modalidad_de_contratacion like '%Directa%' or modalidad_de_contratacion like '%directa%')")
+        condiciones.append("(lower(modalidad_de_contratacion) like '%concurso%')")
 
     params = {
-        "$select": select_cols,
-        "$where": " AND ".join(condiciones),
-        "$order": "fecha_de_publicacion_del DESC",
-        "$limit": str(limite)
+        "": select_cols,
+        "": " AND ".join(condiciones),
+        "": "fecha_de_publicacion_del DESC",
+        "": str(limite)
     }
     
     headers = {
@@ -193,10 +202,10 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TO
     except Exception:
         conds_fb = [f"fecha_de_publicacion_del >= '{fecha_hace_60_dias}'"]
         params_fb = {
-            "$select": select_cols,
-            "$where": " AND ".join(conds_fb),
-            "$order": "fecha_de_publicacion_del DESC",
-            "$limit": str(limite)
+            "": select_cols,
+            "": " AND ".join(conds_fb),
+            "": "fecha_de_publicacion_del DESC",
+            "": str(limite)
         }
         url_fb = f"{base_url}?{urllib.parse.urlencode(params_fb)}"
         resp = requests.get(url_fb, headers=headers, timeout=35)
@@ -234,7 +243,7 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TO
             df['fecha_cierre_dt'] = pd.NaT
             df['fecha_cierre_clean'] = "Por definir en pliegos"
             
-        # Cálculo de Urgencia (Días para cierre)
+        # Urgencia
         ahora = pd.Timestamp.now().normalize()
         def calc_dias_restantes(dt):
             if pd.isna(dt):
@@ -243,7 +252,7 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TO
             if diff < 0:
                 return "Cerrado"
             elif diff == 0:
-                return "🚨 ¡Cierra HOY!"
+                return "🚨 Cierra HOY"
             elif diff <= 3:
                 return f"🔴 {diff} días"
             elif diff <= 7:
@@ -284,32 +293,36 @@ def exportar_df_a_excel(df_filtrado):
     return buffer.getvalue()
 
 # ==============================================================================
-# BARRA LATERAL (SIDEBAR) - FILTROS ORGANIZADOS POR SECCIONES
+# BARRA LATERAL (SIDEBAR) - MODO DE ALTA ESPECIFICIDAD
 # ==============================================================================
-st.sidebar.header("⚙️ Panel de Filtros Inteligentes")
+st.sidebar.header("⚙️ Panel de Control Quirúrgico")
 
-# 1. Configuración de Descarga
-limite_descarga = st.sidebar.slider("📊 Lote de recuperación de Datos Abiertos:", 1000, 20000, 5000, 1000)
+# 1. MODO ENFOQUE QUIRÚRGICO (FILTRO AUTOMÁTICO DE ALTA RELEVANCIA)
+modo_especifico = st.sidebar.toggle(
+    "🎯 Activar Modo Misión VLAO (Alta Especificidad)",
+    value=True,
+    help="Aplica automáticamente presupuestos mínimos, excluye contrataciones directas y filtra fases activas para entregar resultados concretos.")
 
-# 2. Filtro por Actividad / Sector UNSPSC
-sector_sel = st.sidebar.selectbox(
-    "🏢 Actividad / Sector UNSPSC (VLAO):",
-    options=list(CATEGORIAS_UNSPSC.keys())
+# 2. Especialidades VLAO
+especialidad_sel = st.sidebar.selectbox(
+    "🏢 Línea de Negocio / Especialidad:",
+    options=list(ESPECIALIDADES_VLAO.keys())
 )
-codigo_sector = CATEGORIAS_UNSPSC[sector_sel]
+codigo_especialidad = ESPECIALIDADES_VLAO[especialidad_sel]
 
-# 3. Filtro por Tipo de Contrato (Modalidad)
+# 3. Modalidad
 modalidad_sel = st.sidebar.selectbox(
-    "📜 Tipo de Contrato / Modalidad:",
+    "📜 Modalidad de Contratación:",
     options=list(MODALIDADES_SODA.keys())
 )
 codigo_modalidad = MODALIDADES_SODA[modalidad_sel]
 
-# Cargar Datos desde API
-with st.spinner("🚀 Recuperando licitaciones actualizadas de Colombia Compra Eficiente..."):
+# Descargar Lote inicial
+limite_descarga = 5000 if modo_especifico else 10000
+with st.spinner("🚀 Rastrenando oportunidades concretas en SECOP II..."):
     try:
         df_raw = descargar_base_secop_vlao_60dias(
-            sector_codigo=codigo_sector,
+            sector_codigo=codigo_especialidad,
             modalidad_codigo=codigo_modalidad,
             limite=limite_descarga
         )
@@ -320,78 +333,56 @@ with st.spinner("🚀 Recuperando licitaciones actualizadas de Colombia Compra E
 if not df_raw.empty:
     df = df_raw.copy()
 
-    # A. Filtro por Rango de Montos (Presupuesto)
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("💰 Filtro por Monto ($ COP)")
-    if 'precio_num' in df.columns and df['precio_num'].max() > 0:
-        max_monto_m = float(df['precio_num'].max() / 1000000)
-        rango_monto_m = st.sidebar.slider(
-            "Rango de Presupuesto (Millones COP):",
-            min_value=0.0,
-            max_value=max(100.0, max_monto_m),
-            value=(0.0, max(100.0, max_monto_m)),
-            step=10.0,
-            format="$%dM"
-        )
-        min_pesos = rango_monto_m[0] * 1000000
-        max_pesos = rango_monto_m[1] * 1000000
-        df = df[(df['precio_num'] >= min_pesos) & (df['precio_num'] <= max_pesos)]
+    # A. APLICACIÓN DE FILTROS EN MODO ESPECÍFICO
+    if modo_especifico:
+        # Excluir contrataciones directas de personas naturales / OPS
+        if 'modalidad_de_contratacion' in df.columns:
+            df = df[~df['modalidad_de_contratacion'].apply(normalizar_texto).str.contains('directa')]
+        
+        # Filtrar solo fases abiertas/accionables por defecto
+        if 'fase' in df.columns:
+            fases_deseadas = ['Selección', 'Presentación de ofertas', 'Convocatoria', 'Borrador', 'Proyecto de pliegos']
+            def es_fase_activa(val):
+                v_norm = normalizar_texto(val)
+                return any(f.lower() in v_norm for f, in [(f,) for f in ['seleccion', 'oferta', 'convocatoria', 'borrador', 'pliego']])
+            df = df[df['fase'].apply(es_fase_activa)]
 
-    # B. Filtros de Lugar (Ubicación Geográfica Múltiple)
+    # B. Presupuesto Mínimo
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📍 Filtro por Lugar (Ubicación)")
+    st.sidebar.subheader("💰 Presupuesto Mínimo ($ COP)")
+    monto_min_def = 30.0 if modo_especifico else 0.0
+    monto_minimo_m = st.sidebar.number_input(
+        "Presupuesto Mínimo Estimado (Millones COP):",
+        min_value=0.0,
+        max_value=10000.0,
+        value=monto_min_def,
+        step=10.0,
+        help="Descarta contratos de cuantías menores irrelevantes."    )
+    if monto_minimo_m > 0 and 'precio_num' in df.columns:
+        df = df[df['precio_num'] >= (monto_minimo_m * 1000000)]
+
+    # C. Filtros Múltiples de Ubicación
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📍 Filtro por Ubicación")
     
     if 'departamento_entidad' in df.columns:
         dptos_unicos = sorted([d for d in df['departamento_entidad'].dropna().unique() if d])
-        dptos_sel = st.sidebar.multiselect(
-            "🗺️ Departamento(s):",
-            options=dptos_unicos,
-            default=[]
-        )
+        dptos_sel = st.sidebar.multiselect("🗺️ Departamento(s):", options=dptos_unicos, default=[])
         if dptos_sel:
             df = df[df['departamento_entidad'].isin(dptos_sel)]
 
     if 'ciudad_entidad' in df.columns:
         ciudades_unicas = sorted([c for c in df['ciudad_entidad'].dropna().unique() if c])
-        ciudades_sel = st.sidebar.multiselect(
-            "📍 Ciudad(es) / Municipio(s):",
-            options=ciudades_unicas,
-            default=[]
-        )
+        ciudades_sel = st.sidebar.multiselect("📍 Ciudad(es) / Municipio(s):", options=ciudades_unicas, default=[])
         if ciudades_sel:
             df = df[df['ciudad_entidad'].isin(ciudades_sel)]
 
-    # C. Filtros por Estado y Fase
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("📌 Filtro por Estado y Etapa")
-    
-    if 'fase' in df.columns:
-        fases_unicas = sorted([f for f in df['fase'].dropna().unique() if f])
-        fases_sel = st.sidebar.multiselect(
-            "📋 Fase / Etapa del Proceso:",
-            options=fases_unicas,
-            default=[]
-        )
-        if fases_sel:
-            df = df[df['fase'].isin(fases_sel)]
-
-    if 'estado_resumen' in df.columns:
-        estados_unicos = sorted([e for e in df['estado_resumen'].dropna().unique() if e])
-        estados_sel = st.sidebar.multiselect(
-            "📌 Estado del Proceso:",
-            options=estados_unicos,
-            default=[]
-        )
-        if estados_sel:
-            df = df[df['estado_resumen'].isin(estados_sel)]
-
-    # D. Filtro por Palabra Clave Libre
+    # D. Palabra Clave
     st.sidebar.markdown("---")
     palabra_clave = st.sidebar.text_input(
         "🔎 Búsqueda Libre por Palabra Clave:",
         "",
-        placeholder="Ej: cubierta, red electrica, impermeabilizacion..."
-    )
+        placeholder="Ej: cubierta, red electrica, impermeabilizacion..."    )
     if palabra_clave.strip():
         kw_norm = normalizar_texto(palabra_clave)
         df = df[
@@ -400,132 +391,95 @@ if not df_raw.empty:
         ]
 
     # ==============================================================================
-    # TABLERO Y PESTAÑAS INTERACTIVAS
+    # TABLERO Y RESULTADOS CONCRETOS
     # ==============================================================================
-    # Métricas KPI Superiores
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-    with kpi1:
-        st.metric("🎯 Oportunidades Filtradas", f"{len(df):,} licitaciones")
-    with kpi2:
+    # KPIs Superiores
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        st.metric("🎯 Oportunidades Clave", f"{len(df):,} licitaciones")
+    with k2:
         monto_tot = df['precio_num'].sum() if 'precio_num' in df.columns else 0
         st.metric("💰 Presupuesto Acumulado", formato_pesos_cop(monto_tot))
-    with kpi3:
+    with k3:
         monto_prom = df['precio_num'].mean() if 'precio_num' in df.columns and len(df) > 0 else 0
         st.metric("📈 Promedio por Contrato", formato_pesos_cop(monto_prom))
-    with kpi4:
+    with k4:
         muncs = df['ciudad_entidad'].nunique() if 'ciudad_entidad' in df.columns else 0
         st.metric("📍 Municipios / Ciudades", f"{muncs} activos")
 
     st.divider()
 
-    # Pestañas principales de navegación
-    tab_listado, tab_graficos, tab_urgencia = st.tabs([
-        "📋 Listado Operativo de Licitaciones",
-        "📊 Analytics y Distribución Visual",
-        "⏱️ Radar de Urgencia (Cierre de Ofertas)"
-    ])
-
-    # --------------------------------------------------------------------------
-    # PESTAÑA 1: LISTADO OPERATIVO
-    # --------------------------------------------------------------------------
-    with tab_listado:
-        st.markdown(f"#### 📋 Oportunidades Encontradas ({len(df)} Registros)")
+    # SECCIÓN RECOMENDADA: TOP 10 OPORTUNIDADES ESTRELLA
+    if not df.empty:
+        st.markdown("### ⭐ Top 10 Oportunidades de Alto Valor (Prioridad Comercial)")
+        df_top = df.sort_values(by=['precio_num', 'fecha_pub_dt'], ascending=[False, False]).head(10)
         
-        cols_mostrar = {
-            'entidad': 'Entidad Compradora',
-            'ciudad_entidad': 'Municipio',
-            'departamento_entidad': 'Departamento',
-            'nombre_del_procedimiento': 'Objeto del Contrato',
-            'modalidad_de_contratacion': 'Modalidad',
-            'fase': 'Fase',
-            'precio_formateado': 'Presupuesto Estimado',
-            'fecha_pub_clean': 'Publicación',
-            'fecha_cierre_clean': 'Cierre Ofertas',
-            'dias_restantes': 'Urgencia',
-            'urlproceso': 'Link SECOP II'
+        for idx, row in df_top.iterrows():
+            with st.container():
+                st.markdown(f"""
+                <div class="opportunity-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="card-title">🏢 {row.get('entidad', 'Entidad Estatal')}</span>
+                        <span class="card-badge">💰 {row.get('precio_formateado', '$ 0 COP')}</span>
+                    </div>
+                    <div style="margin-top:8px; font-size:0.95rem; color:#334155;">
+                        <b>Objeto:</b> {row.get('nombre_del_procedimiento', 'Sin descripción')}
+                    </div>
+                    <div style="margin-top:8px; font-size:0.85rem; color:#64748B;">
+                        📍 <b>Ubicación:</b> {row.get('ciudad_entidad', 'N/I')}, {row.get('departamento_entidad', 'N/I')} | 
+                        📜 <b>Modalidad:</b> {row.get('modalidad_de_contratacion', 'N/I')} | 
+                        📌 <b>Fase:</b> {row.get('fase', 'N/I')} | 
+                        ⏱️ <b>Urgencia Cierre:</b> {row.get('dias_restantes', 'Por definir')}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                url_link = row.get('urlproceso', '')
+                if url_link:
+                    st.markdown(f"[👉 Abrir Licitación en SECOP II]({url_link})")
+                st.divider()
+
+    # TABLA INTERACTIVA DETALLADA (TOP 50 CONCRETAS)
+    st.markdown("### 📋 Listado Detallado de Oportunidades Filtradas")
+    st.caption("Mostrando las principales coincidencia exactas ordenadas por presupuesto e impacto.")
+    
+    cols_mostrar = {
+        'entidad': 'Entidad Compradora',
+        'ciudad_entidad': 'Municipio',
+        'departamento_entidad': 'Departamento',
+        'nombre_del_procedimiento': 'Objeto del Contrato',
+        'modalidad_de_contratacion': 'Modalidad',
+        'fase': 'Fase',
+        'precio_formateado': 'Presupuesto Estimado',
+        'fecha_pub_clean': 'Publicación',
+        'fecha_cierre_clean': 'Cierre Ofertas',
+        'dias_restantes': 'Urgencia',
+        'urlproceso': 'Link SECOP II'
+    }
+    
+    cols_existentes = [c for c in cols_mostrar.keys() if c in df.columns]
+    df_vista = df[cols_existentes].rename(columns={c: cols_mostrar[c] for c in cols_existentes}).head(50)
+    
+    st.dataframe(
+        df_vista,
+        use_container_width=True,
+        column_config={
+            "Link SECOP II": st.column_config.LinkColumn(
+                "Link SECOP II",
+                help="Abrir la licitación directamente en la plataforma de Colombia Compra Eficiente",
+                display_text="Ver Proceso"
+            )
         }
-        
-        cols_existentes = [c for c in cols_mostrar.keys() if c in df.columns]
-        df_vista = df[cols_existentes].rename(columns={c: cols_mostrar[c] for c in cols_existentes})
-        
-        st.dataframe(
-            df_vista,
-            use_container_width=True,
-            column_config={
-                "Link SECOP II": st.column_config.LinkColumn(
-                    "Link SECOP II",
-                    help="Abrir la licitación directamente en la plataforma de Colombia Compra Eficiente",
-                    display_text="Ver Proceso"
-                )
-            }
-        )
+    )
 
-        st.markdown("---")
-        excel_data = exportar_df_a_excel(df)
-        st.download_button(
-            label="📥 Exportar Lista Seleccionada a Excel (.xlsx)",
-            data=excel_data,
-            file_name=f"radar_vlao_secop_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    # --------------------------------------------------------------------------
-    # PESTAÑA 2: ANALYTICS Y DISTRIBUCIÓN VISUAL
-    # --------------------------------------------------------------------------
-    with tab_graficos:
-        st.markdown("#### 📊 Análisis Visual de Oportunidades")
-        
-        col_g1, col_g2 = st.columns(2)
-        
-        with col_g1:
-            if 'departamento_entidad' in df.columns and not df.empty:
-                st.markdown("##### 🗺️ Presupuesto Acumulado por Departamento ($ COP)")
-                monto_dpto = df.groupby('departamento_entidad')['precio_num'].sum().sort_values(ascending=False).head(10)
-                st.bar_chart(monto_dpto)
-
-        with col_g2:
-            if 'modalidad_de_contratacion' in df.columns and not df.empty:
-                st.markdown("##### 📜 Distribución de Contratos por Modalidad")
-                conteo_mod = df['modalidad_de_contratacion'].value_counts()
-                st.bar_chart(conteo_mod)
-
-        st.markdown("---")
-        if 'fase' in df.columns and not df.empty:
-            st.markdown("##### 📌 Oportunidades por Fase del Proceso")
-            conteo_fase = df['fase'].value_counts()
-            st.bar_chart(conteo_fase)
-
-    # --------------------------------------------------------------------------
-    # PESTAÑA 3: RADAR DE URGENCIA
-    # --------------------------------------------------------------------------
-    with tab_urgencia:
-        st.markdown("#### ⏱️ Próximos Cierres de Ofertas (Prioridad Comercial)")
-        
-        if 'dias_restantes' in df.columns and not df.empty:
-            df_urgentes = df[df['dias_restantes'].str.contains('🔴|🚨|🟡', regex=True)].copy()
-            if not df_urgentes.empty:
-                st.warning(f"🚨 Se detectaron **{len(df_urgentes)}** licitaciones con cierre en los próximos 7 días.")
-                
-                cols_urgentes = ['entidad', 'ciudad_entidad', 'nombre_del_procedimiento', 'precio_formateado', 'fecha_cierre_clean', 'dias_restantes', 'urlproceso']
-                cols_exist = [c for c in cols_urgentes if c in df_urgentes.columns]
-                
-                st.dataframe(
-                    df_urgentes[cols_exist].rename(columns={
-                        'entidad': 'Entidad',
-                        'ciudad_entidad': 'Municipio',
-                        'nombre_del_procedimiento': 'Objeto',
-                        'precio_formateado': 'Presupuesto',
-                        'fecha_cierre_clean': 'Cierre Ofertas',
-                        'dias_restantes': 'Urgencia',
-                        'urlproceso': 'Link SECOP II'
-                    }),
-                    use_container_width=True,
-                    column_config={
-                        "Link SECOP II": st.column_config.LinkColumn("Link SECOP II", display_text="Ver Proceso")
-                    }
-                )
-            else:
-                st.info("ℹ️ No hay licitaciones críticas con cierre en los próximos 7 días dentro del filtro seleccionado.")
+    st.markdown("---")
+    excel_data = exportar_df_a_excel(df)
+    st.download_button(
+        label="📥 Exportar Reporte Completo Seleccionado a Excel (.xlsx)",
+        data=excel_data,
+        file_name=f"radar_vlao_especifico_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 else:
-    st.warning("⚠️ No se encontraron resultados con los filtros aplicados. Te sugerimos reiniciar los filtros o aumentar el lote de descarga en la barra lateral.")
+    st.warning("⚠️ No se encontraron resultados que cumplan los criterios de alta especificidad. Te sugerimos reducir el presupuesto mínimo o desactivar el 'Modo Misión VLAO'.")
