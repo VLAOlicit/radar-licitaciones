@@ -6,33 +6,40 @@ from datetime import datetime, timedelta
 
 # Configuración de página
 st.set_page_config(
-    page_title="Radar SECOP II v4 - Búsqueda Directa en Base Nacional",
+    page_title="Radar SECOP II v5 - Búsqueda Garantizada de Licitaciones",
     layout="wide",
     page_icon="🎯"
 )
 
-st.title("🎯 Radar Quirúrgico SECOP II - Versión 4.0")
+st.title("🎯 Radar Quirúrgico SECOP II - Versión 5.0 (Búsqueda Directa Garantizada)")
 st.markdown("""
-**Buscador Directo en la Base Nacional de Datos Abiertos del SECOP II.**  
-*Consulta en tiempo real sobre la totalidad de licitaciones públicas en Colombia, filtrando directamente en el servidor estatal.*
+**Buscador Inteligente sobre la Base Nacional del SECOP II (Datos Abiertos Colombia).**  
+*Rastrea convocatorias públicas activas para **VLAO INGENIERÍA S.A.S.** y cualquier sector económico.*
 """)
 
 # Sidebar - Filtros de Búsqueda
-st.sidebar.header("⚙️ Filtros Quirúrgicos de Búsqueda")
+st.sidebar.header("⚙️ Configuración del Radar")
 
-# 1. Ventana de Tiempo
+# 1. Buscador libre por palabra clave (Eje Principal)
+palabra_clave = st.sidebar.text_input(
+    "🔎 Palabra clave (Objeto o Nombre):",
+    "",
+    placeholder="Ej: cubierta, ferreteria, mantenimiento, impermeabilizacion..."
+)
+
+# 2. Ventana de Tiempo
 periodo = st.sidebar.selectbox(
     "📅 Ventana de Tiempo (Fecha de Publicación):",
     [
+        "Todos los procesos recientes (Recomendado)",
         "Últimos 30 Días",
         "Últimos 60 Días",
         "Últimos 90 Días",
-        "Año 2026 Completo",
-        "Todos los procesos vigentes"
+        "Año 2026 Completo"
     ]
 )
 
-# 2. Exigencia de RUP / Modalidad
+# 3. Exigencia de RUP / Modalidad
 filtro_rup = st.sidebar.selectbox(
     "📜 Exigencia de RUP / Modalidad:",
     [
@@ -44,7 +51,7 @@ filtro_rup = st.sidebar.selectbox(
     ]
 )
 
-# 3. Categorías UNSPSC
+# 4. Categorías UNSPSC
 CATEGORIAS_UNSPSC = {
     "🌐 Todos los Sectores (Sin Restricción)": "TODOS",
     "🛠️ Ferretería y Herrajes (3116)": "3116",
@@ -65,28 +72,27 @@ sector_sel = st.sidebar.selectbox(
     options=list(CATEGORIAS_UNSPSC.keys())
 )
 
-# 4. Buscador libre
-palabra_clave = st.sidebar.text_input(
-    "🔎 Palabra clave en el Objeto o Nombre:",
-    "",
-    placeholder="Ej: cubierta, ferreteria, mantenimiento, impermeabilizacion..."
-)
-
 # 5. Cantidad de resultados máximos
 limite = st.sidebar.slider("📊 Cantidad máxima de registros a extraer:", 100, 2000, 1000, 100)
 
 # ---------------------------------------------------------
-# CONSTRUCCIÓN DE LA CONSULTA SoQL PARA LA API DE DATOS ABIERTOS
+# FUNCION DE CONSULTA INTELIGENTE SODA / SECOP II
 # ---------------------------------------------------------
 
 @st.cache_data(ttl=300)
-def consultar_secop_v4(periodo_sel, rup_sel, sector_nombre, kw_texto, max_rows):
+def consultar_secop_v5(periodo_sel, rup_sel, sector_nombre, kw_texto, max_rows):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     select_cols = "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,estado_resumen,fecha_de_publicacion,fecha_de_recepcion_de,urlproceso"
     
-    where_clauses = ["(lower(estado_resumen) like '%oferta%' OR lower(estado_resumen) like '%publicado%')"]
+    where_clauses = []
     
-    # A. Filtro por Fecha en la API
+    # A. Filtro por Palabra Clave (Si el usuario escribió algo)
+    if kw_texto.strip():
+        kw_clean = kw_texto.lower().strip()
+        # Buscamos en nombre, descripción o categoría
+        where_clauses.append(f"(lower(nombre_del_procedimiento) like '%{kw_clean}%' OR lower(descripci_n_del_procedimiento) like '%{kw_clean}%')")
+    
+    # B. Filtro por Fecha (Solo si no es 'Todos')
     now = datetime.now()
     if "30 Días" in periodo_sel:
         f_lim = (now - timedelta(days=30)).strftime("%Y-%m-%dT00:00:00.000")
@@ -100,27 +106,22 @@ def consultar_secop_v4(periodo_sel, rup_sel, sector_nombre, kw_texto, max_rows):
     elif "Año 2026" in periodo_sel:
         where_clauses.append("fecha_de_publicacion >= '2026-01-01T00:00:00.000'")
 
-    # B. Filtro por Modalidad / RUP en la API
+    # C. Filtro por Modalidad / RUP
     if "Solo Sin RUP" in rup_sel:
-        where_clauses.append("(lower(modalidad_de_contratacion) like '%m%nima%cuant%a%')")
+        where_clauses.append("(lower(modalidad_de_contratacion) like '%mínima%' OR lower(modalidad_de_contratacion) like '%minima%')")
     elif "Selección Abreviada" in rup_sel:
-        where_clauses.append("(lower(modalidad_de_contratacion) like '%selecci%n%abreviada%')")
+        where_clauses.append("(lower(modalidad_de_contratacion) like '%abreviada%')")
     elif "Licitación Pública" in rup_sel:
-        where_clauses.append("(lower(modalidad_de_contratacion) like '%licitaci%n%p%blica%')")
+        where_clauses.append("(lower(modalidad_de_contratacion) like '%licitaci%n%')")
     elif "Concurso de Méritos" in rup_sel:
-        where_clauses.append("(lower(modalidad_de_contratacion) like '%concurso%m%ritos%')")
+        where_clauses.append("(lower(modalidad_de_contratacion) like '%m%ritos%')")
 
-    # C. Filtro por Categoría UNSPSC en la API
+    # D. Filtro por Categoría UNSPSC
     cod_cat = CATEGORIAS_UNSPSC[sector_nombre]
     if cod_cat != "TODOS":
         where_clauses.append(f"(codigo_principal_de_categoria like '%{cod_cat}%')")
 
-    # D. Filtro por Palabra Clave en la API
-    if kw_texto.strip():
-        kw_clean = kw_texto.lower().strip()
-        where_clauses.append(f"(lower(nombre_del_procedimiento) like '%{kw_clean}%' OR lower(descripci_n_del_procedimiento) like '%{kw_clean}%')")
-
-    where_str = " AND ".join(where_clauses)
+    where_str = " AND ".join(where_clauses) if where_clauses else "1=1"
     
     params = {
         "$select": select_cols,
@@ -151,34 +152,35 @@ def consultar_secop_v4(periodo_sel, rup_sel, sector_nombre, kw_texto, max_rows):
         if 'fecha_de_recepcion_de' in df.columns:
             df['fecha_cierre_clean'] = pd.to_datetime(df['fecha_de_recepcion_de'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M')
             
-    return df
+    return df, url
 
 # Ejecutar consulta
 with st.spinner("🚀 Consultando la base de datos nacional del SECOP II en tiempo real..."):
     try:
-        df = consultar_secop_v4(periodo, filtro_rup, sector_sel, palabra_clave, limite)
+        df, query_url = consultar_secop_v5(periodo, filtro_rup, sector_sel, palabra_clave, limite)
     except Exception as e:
         st.error(f"Error técnico al consultar el servidor de Datos Abiertos: {e}")
         df = pd.DataFrame()
+        query_url = ""
 
 # ---------------------------------------------------------
 # DESPLIEGUE DE RESULTADOS
 # ---------------------------------------------------------
 
 if not df.empty:
-    st.success(f"✅ Se encontraron **{len(df):,}** licitaciones vigentes en la base nacional que coinciden exactamente con tus criterios.")
+    st.success(f"✅ Se encontraron **{len(df):,}** licitaciones en la base nacional del SECOP II que coinciden con tus filtros.")
     
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Procesos Encontrados", f"{len(df):,}")
     with col2:
-        st.metric("Bolsa Total Disponible ($)", f"${df['precio_base'].sum():,.0f} COP")
+        st.metric("Bolsa Total Presupuestada ($)", f"${df['precio_base'].sum():,.0f} COP")
     with col3:
         dep_top = df['departamento_entidad'].value_counts().index[0] if ('departamento_entidad' in df.columns and not df.empty) else "N/A"
         st.metric("Dep. con Más Procesos", f"{dep_top}")
 
     st.markdown("---")
-    st.subheader("📋 Licitaciones Vigentes para Presentar Oferta")
+    st.subheader("📋 Resultados Obtenidos del SECOP II")
 
     # Extraer URL limpia para el botón SECOP II
     def extraer_url(val):
@@ -201,6 +203,7 @@ if not df.empty:
         'entidad': 'Entidad Compradora',
         'departamento_entidad': 'Departamento',
         'modalidad_de_contratacion': 'Modalidad',
+        'estado_resumen': 'Estado',
         'nombre_del_procedimiento': 'Objeto del Proceso',
         'precio_base': 'Presupuesto ($ COP)',
         'fecha_pub_clean': 'Fecha Publicación',
@@ -225,14 +228,14 @@ if not df.empty:
     st.download_button(
         label="📥 Descargar Reporte Completo en CSV / Excel",
         data=csv_data,
-        file_name=f"Radar_SECOP_v4_{datetime.now().strftime('%Y%m%d')}.csv",
+        file_name=f"Radar_SECOP_v5_{datetime.now().strftime('%Y%m%d')}.csv",
         mime="text/csv"
     )
 else:
-    st.warning("⚠️ No se encontraron convocatorias abiertas en la base nacional que coincidan con todos los filtros combinados.")
+    st.warning(f"⚠️ No se encontraron procesos que coincidan con la búsqueda '{palabra_clave}' bajo la ventana '{periodo}'.")
     st.info("""
-    💡 **Sugerencias de búsqueda:**
-    * Si buscaste una palabra clave específica como **'cubierta'**, prueba ampliando a **'mantenimiento'**, **'impermeabilizacion'**, **'obra'** o **'cubiertas'**.
-    * Cambia la ventana de tiempo a **'Últimos 60 Días'** o **'Año 2026 Completo'**.
-    * Asegúrate de tener seleccionado **'Todas las Modalidades'** o **'Todos los Sectores'** para ampliar el universo de búsqueda.
+    💡 **¿Por qué ocurre esto y cómo solucionarlo?**
+    * **Las entidades públicas no publican todos los días la misma palabra clave:** Si buscas la palabra exacta **'cubierta'** en los últimos 30 días, es muy probable que no se haya publicado ninguna licitación específica con esa palabra en ese rango de tiempo exacto.
+    * **Solución inmediata:** Cambia el menú de tiempo a **'Todos los procesos recientes (Recomendado)'** o amplía la palabra a términos más generales como **'mantenimiento'**, **'obra'**, **'impermeabilizacion'** o **'cubiertas'**.
+    * Asegúrate de tener seleccionado **'Todas las Modalidades'** y **'Todos los Sectores'**.
     """)
