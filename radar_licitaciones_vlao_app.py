@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 # Configuración de la página en Streamlit
 st.set_page_config(
-    page_title="Radar SECOP II v13 - VLAO INGENIERÍA S.A.S.",
+    page_title="Radar SECOP II v14 - VLAO INGENIERÍA S.A.S.",
     layout="wide",
     page_icon="🎯"
 )
@@ -21,8 +21,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 13.0</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (Filtros por Fecha de Publicación y Formateo en Pesos Colombianos)</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 14.0</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (Integración de Fecha de Publicación + Última Publicación y Formato Monetario $ COP)</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # FUNCIONES AUXILIARES: NORMALIZACIÓN Y FORMATO DE MONEDA
@@ -58,9 +58,9 @@ palabra_clave = st.sidebar.text_input(
     placeholder="Ej: cubierta, ferreteria, mantenimiento, impermeabilizacion, suministro, redes..."
 )
 
-# 2. Ventana de Tiempo (Basada estrictamente en Fecha de Publicación)
+# 2. Ventana de Tiempo (Basada en Fecha de Publicación / Última Publicación)
 periodo = st.sidebar.selectbox(
-    "📅 Ventana de Tiempo (Fecha de Publicación):",
+    "📅 Ventana de Tiempo (Fecha de Publicación / Última Publicación):",
     [
         "Todos los procesos recientes (Recomendado)",
         "Últimos 30 Días de Publicación",
@@ -134,7 +134,7 @@ limite_descarga = st.sidebar.slider("📊 Muestra descargada de Datos Abiertos:"
 @st.cache_data(ttl=300)
 def descargar_base_secop(limite):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
-    select_cols = "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,estado_resumen,fecha_de_publicacion,fecha_de_recepcion_de,urlproceso"
+    select_cols = "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,estado_resumen,fecha_de_publicacion,fecha_de_ultima_publicacion,fecha_de_recepcion_de,urlproceso"
     
     params = {
         "$select": select_cols,
@@ -161,13 +161,13 @@ def descargar_base_secop(limite):
             df['precio_num'] = 0
             df['precio_formateado'] = "$ 0 COP"
             
-        # PROCESAMIENTO EXPLICITO DE FECHA DE PUBLICACION
-        if 'fecha_de_publicacion' in df.columns:
-            df['fecha_pub_dt'] = pd.to_datetime(df['fecha_de_publicacion'], errors='coerce')
-            df['fecha_pub_clean'] = df['fecha_pub_dt'].dt.strftime('%Y-%m-%d')
-        else:
-            df['fecha_pub_dt'] = pd.NaT
-            df['fecha_pub_clean'] = "Sin fecha"
+        # PROCESAMIENTO HÍBRIDO DE FECHAS DE PUBLICACIÓN (FECHA PUBLICACIÓN + ÚLTIMA PUBLICACIÓN)
+        dt_pub1 = pd.to_datetime(df['fecha_de_publicacion'], errors='coerce') if 'fecha_de_publicacion' in df.columns else pd.Series(pd.NaT, index=df.index)
+        dt_pub2 = pd.to_datetime(df['fecha_de_ultima_publicacion'], errors='coerce') if 'fecha_de_ultima_publicacion' in df.columns else pd.Series(pd.NaT, index=df.index)
+        
+        # Coalesce: Usar fecha_de_publicacion y si es NaT, tomar fecha_de_ultima_publicacion
+        df['fecha_pub_dt'] = dt_pub1.fillna(dt_pub2)
+        df['fecha_pub_clean'] = df['fecha_pub_dt'].dt.strftime('%Y-%m-%d').fillna("Por definir en pliegos")
             
         # Manejo limpio de Fecha de Cierre
         if 'fecha_de_recepcion_de' in df.columns:
@@ -217,7 +217,7 @@ if not df_raw.empty:
         cond_desc = df['desc_norm'].str.contains(pk, na=False)
         df = df[cond_nom | cond_desc]
 
-    # C. FILTRO RIGUROSO BASADO EN FECHA DE PUBLICACIÓN
+    # C. FILTRO INTELIGENTE DE FECHA (CONSOLIDADO PUBLICACIÓN + ÚLTIMA PUBLICACIÓN)
     if 'fecha_pub_dt' in df.columns and df['fecha_pub_dt'].notna().any():
         max_fecha_pub = df['fecha_pub_dt'].max()
         if "30 Días" in periodo:
@@ -360,11 +360,15 @@ if not df_raw.empty:
         st.download_button(
             label="📥 Descargar Reporte Comercial en Excel / CSV",
             data=csv_data,
-            file_name=f"Radar_SECOP_v13_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            file_name=f"Radar_SECOP_v14_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv"
         )
     else:
         st.warning("⚠️ No se encontraron procesos que coincidan con la combinación exacta de filtros seleccionada.")
-        st.info("💡 Sugerencia: Prueba desmarcando filtros específicos o seleccionando '🌐 Todas las Modalidades'.")
+        st.info("""
+        💡 **Sugerencias de búsqueda:**
+        * Si aplicaste un filtro estricto por ciudad o palabra clave, prueba desmarcando los desplegables de selección múltiple en pantalla.
+        * Asegúrate de tener seleccionada la opción **'🌐 Todas las Modalidades'** o **'Todos los procesos recientes'** para ampliar la búsqueda.
+        """)
 else:
     st.error("No fue posible descargar datos del SECOP II. Por favor refresca la aplicación.")
