@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 # Configuración de la página en Streamlit
 st.set_page_config(
-    page_title="Radar SECOP II v15 - VLAO INGENIERÍA S.A.S.",
+    page_title="Radar SECOP II v16 - VLAO INGENIERÍA S.A.S.",
     layout="wide",
     page_icon="🎯"
 )
@@ -21,11 +21,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 15.0</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (Conexión Estable sin Errores de Columna + Formato $ COP)</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 16.0</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (Procesamiento Exacto de Fechas YYYY-MM-DD + Formato Monetario $ COP)</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# FUNCIONES AUXILIARES: NORMALIZACIÓN Y FORMATO DE MONEDA
+# FUNCIONES AUXILIARES: NORMALIZACIÓN, FECHAS Y MONEDA
 # ---------------------------------------------------------
 def normalizar_texto(texto):
     """Elimina acentos, tildes y caracteres especiales para búsquedas exactas."""
@@ -45,6 +45,33 @@ def formato_pesos_cop(valor):
         return f"$ {val:,.0f} COP".replace(",", ".")
     except Exception:
         return "$ 0 COP"
+
+def parsear_fecha_secop(val):
+    """Extrae quirúrgicamente la fecha AAAA-MM-DD de los diversos formatos de cadenas del SECOP II."""
+    if pd.isna(val) or not val:
+        return pd.NaT, "Por definir"
+    val_str = str(val).strip()
+    if not val_str or val_str.lower() in ['none', 'nan', 'null', 'nat']:
+        return pd.NaT, "Por definir"
+    
+    # 1. Extracción directa si viene en formato ISO (ej: '2026-09-21T14:30:00.000' o '2026-09-19T08:15:22-05:00')
+    if len(val_str) >= 10 and val_str[4] in ['-', '/'] and val_str[7] in ['-', '/']:
+        date_part = val_str[:10].replace('/', '-')
+        try:
+            dt = pd.to_datetime(date_part, format='%Y-%m-%d', errors='coerce')
+            return dt, date_part
+        except Exception:
+            pass
+            
+    # 2. Conversión general de pandas
+    try:
+        dt = pd.to_datetime(val_str, errors='coerce')
+        if pd.notna(dt):
+            return dt, dt.strftime('%Y-%m-%d')
+    except Exception:
+        pass
+        
+    return pd.NaT, val_str[:10] if len(val_str) >= 10 else val_str
 
 # ---------------------------------------------------------
 # BARRA LATERAL (SIDEBAR) - CONFIGURACIÓN DE FILTROS
@@ -134,7 +161,6 @@ limite_descarga = st.sidebar.slider("📊 Muestra descargada de Datos Abiertos:"
 @st.cache_data(ttl=300)
 def descargar_base_secop(limite):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
-    # Campos válidos oficiales del esquema p6dx-8zbt del SECOP II
     select_cols = "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,estado_resumen,fecha_de_publicacion,fecha_de_recepcion_de,urlproceso"
     
     params = {
@@ -162,17 +188,19 @@ def descargar_base_secop(limite):
             df['precio_num'] = 0
             df['precio_formateado'] = "$ 0 COP"
             
-        # PROCESAMIENTO ROBUSTO DE FECHAS
+        # EXTRACTION ROBUSTA Y PRECISA DE FECHA DE PUBLICACIÓN
         if 'fecha_de_publicacion' in df.columns:
-            df['fecha_pub_dt'] = pd.to_datetime(df['fecha_de_publicacion'], errors='coerce')
-            df['fecha_pub_clean'] = df['fecha_pub_dt'].dt.strftime('%Y-%m-%d').fillna("Publicado recientemente")
+            res_pub = [parsear_fecha_secop(v) for v in df['fecha_de_publicacion']]
+            df['fecha_pub_dt'] = [r[0] for r in res_pub]
+            df['fecha_pub_clean'] = [r[1] for r in res_pub]
         else:
             df['fecha_pub_dt'] = pd.NaT
-            df['fecha_pub_clean'] = "Publicado recientemente"
+            df['fecha_pub_clean'] = "Por definir"
             
+        # EXTRACTION ROBUSTA DE FECHA DE CIERRE
         if 'fecha_de_recepcion_de' in df.columns:
-            df['fecha_cierre_dt'] = pd.to_datetime(df['fecha_de_recepcion_de'], errors='coerce')
-            df['fecha_cierre_clean'] = df['fecha_cierre_dt'].dt.strftime('%Y-%m-%d %H:%M').fillna("Por definir en pliegos")
+            res_cie = [parsear_fecha_secop(v) for v in df['fecha_de_recepcion_de']]
+            df['fecha_cierre_clean'] = [r[1] if r[1] != "Por definir" else "Por definir en pliegos" for r in res_cie]
         else:
             df['fecha_cierre_clean'] = "Por definir en pliegos"
             
@@ -217,7 +245,7 @@ if not df_raw.empty:
         cond_desc = df['desc_norm'].str.contains(pk, na=False)
         df = df[cond_nom | cond_desc]
 
-    # C. FILTRO INTELIGENTE DE FECHA DE PUBLICACIÓN (Conserva registros sin fecha que estén activos)
+    # C. FILTRO INTELIGENTE DE FECHA DE PUBLICACIÓN
     if 'fecha_pub_dt' in df.columns and df['fecha_pub_dt'].notna().any():
         valid_dates = df['fecha_pub_dt'].dropna()
         max_fecha_pub = valid_dates.max() if not valid_dates.empty else pd.Timestamp.now()
@@ -297,8 +325,7 @@ if not df_raw.empty:
 
     # ---------------------------------------------------------
     # DESPLIEGUE DE RESULTADOS Y METRICAS FORMATEADAS
-    # ---------------------------------------------------------
-    if not df.empty:
+    # ---------------------------------------------------------\n    if not df.empty:
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Licitaciones Activas", f"{len(df):,}")
@@ -362,7 +389,7 @@ if not df_raw.empty:
         st.download_button(
             label="📥 Descargar Reporte Comercial en Excel / CSV",
             data=csv_data,
-            file_name=f"Radar_SECOP_v15_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            file_name=f"Radar_SECOP_v16_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv"
         )
     else:
