@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 # Configuración de la página en Streamlit
 st.set_page_config(
-    page_title="Radar SECOP II v14 - VLAO INGENIERÍA S.A.S.",
+    page_title="Radar SECOP II v15 - VLAO INGENIERÍA S.A.S.",
     layout="wide",
     page_icon="🎯"
 )
@@ -21,8 +21,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 14.0</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (Integración de Fecha de Publicación + Última Publicación y Formato Monetario $ COP)</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 15.0</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (Conexión Estable sin Errores de Columna + Formato $ COP)</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # FUNCIONES AUXILIARES: NORMALIZACIÓN Y FORMATO DE MONEDA
@@ -58,9 +58,9 @@ palabra_clave = st.sidebar.text_input(
     placeholder="Ej: cubierta, ferreteria, mantenimiento, impermeabilizacion, suministro, redes..."
 )
 
-# 2. Ventana de Tiempo (Basada en Fecha de Publicación / Última Publicación)
+# 2. Ventana de Tiempo
 periodo = st.sidebar.selectbox(
-    "📅 Ventana de Tiempo (Fecha de Publicación / Última Publicación):",
+    "📅 Ventana de Tiempo (Fecha de Publicación):",
     [
         "Todos los procesos recientes (Recomendado)",
         "Últimos 30 Días de Publicación",
@@ -134,7 +134,8 @@ limite_descarga = st.sidebar.slider("📊 Muestra descargada de Datos Abiertos:"
 @st.cache_data(ttl=300)
 def descargar_base_secop(limite):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
-    select_cols = "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,estado_resumen,fecha_de_publicacion,fecha_de_ultima_publicacion,fecha_de_recepcion_de,urlproceso"
+    # Campos válidos oficiales del esquema p6dx-8zbt del SECOP II
+    select_cols = "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,estado_resumen,fecha_de_publicacion,fecha_de_recepcion_de,urlproceso"
     
     params = {
         "$select": select_cols,
@@ -161,15 +162,14 @@ def descargar_base_secop(limite):
             df['precio_num'] = 0
             df['precio_formateado'] = "$ 0 COP"
             
-        # PROCESAMIENTO HÍBRIDO DE FECHAS DE PUBLICACIÓN (FECHA PUBLICACIÓN + ÚLTIMA PUBLICACIÓN)
-        dt_pub1 = pd.to_datetime(df['fecha_de_publicacion'], errors='coerce') if 'fecha_de_publicacion' in df.columns else pd.Series(pd.NaT, index=df.index)
-        dt_pub2 = pd.to_datetime(df['fecha_de_ultima_publicacion'], errors='coerce') if 'fecha_de_ultima_publicacion' in df.columns else pd.Series(pd.NaT, index=df.index)
-        
-        # Coalesce: Usar fecha_de_publicacion y si es NaT, tomar fecha_de_ultima_publicacion
-        df['fecha_pub_dt'] = dt_pub1.fillna(dt_pub2)
-        df['fecha_pub_clean'] = df['fecha_pub_dt'].dt.strftime('%Y-%m-%d').fillna("Por definir en pliegos")
+        # PROCESAMIENTO ROBUSTO DE FECHAS
+        if 'fecha_de_publicacion' in df.columns:
+            df['fecha_pub_dt'] = pd.to_datetime(df['fecha_de_publicacion'], errors='coerce')
+            df['fecha_pub_clean'] = df['fecha_pub_dt'].dt.strftime('%Y-%m-%d').fillna("Publicado recientemente")
+        else:
+            df['fecha_pub_dt'] = pd.NaT
+            df['fecha_pub_clean'] = "Publicado recientemente"
             
-        # Manejo limpio de Fecha de Cierre
         if 'fecha_de_recepcion_de' in df.columns:
             df['fecha_cierre_dt'] = pd.to_datetime(df['fecha_de_recepcion_de'], errors='coerce')
             df['fecha_cierre_clean'] = df['fecha_cierre_dt'].dt.strftime('%Y-%m-%d %H:%M').fillna("Por definir en pliegos")
@@ -217,20 +217,22 @@ if not df_raw.empty:
         cond_desc = df['desc_norm'].str.contains(pk, na=False)
         df = df[cond_nom | cond_desc]
 
-    # C. FILTRO INTELIGENTE DE FECHA (CONSOLIDADO PUBLICACIÓN + ÚLTIMA PUBLICACIÓN)
+    # C. FILTRO INTELIGENTE DE FECHA DE PUBLICACIÓN (Conserva registros sin fecha que estén activos)
     if 'fecha_pub_dt' in df.columns and df['fecha_pub_dt'].notna().any():
-        max_fecha_pub = df['fecha_pub_dt'].max()
+        valid_dates = df['fecha_pub_dt'].dropna()
+        max_fecha_pub = valid_dates.max() if not valid_dates.empty else pd.Timestamp.now()
+        
         if "30 Días" in periodo:
             corte = max_fecha_pub - pd.Timedelta(days=30)
-            df = df[df['fecha_pub_dt'] >= corte]
+            df = df[(df['fecha_pub_dt'] >= corte) | (df['fecha_pub_dt'].isna())]
         elif "60 Días" in periodo:
             corte = max_fecha_pub - pd.Timedelta(days=60)
-            df = df[df['fecha_pub_dt'] >= corte]
+            df = df[(df['fecha_pub_dt'] >= corte) | (df['fecha_pub_dt'].isna())]
         elif "90 Días" in periodo:
             corte = max_fecha_pub - pd.Timedelta(days=90)
-            df = df[df['fecha_pub_dt'] >= corte]
+            df = df[(df['fecha_pub_dt'] >= corte) | (df['fecha_pub_dt'].isna())]
         elif "Año 2026" in periodo:
-            df = df[df['fecha_pub_dt'] >= pd.Timestamp('2026-01-01')]
+            df = df[(df['fecha_pub_dt'] >= pd.Timestamp('2026-01-01')) | (df['fecha_pub_dt'].isna())]
 
     # D. Filtro de Modalidad
     cod_mod = MODALIDADES_SECOP[modalidad_sel]
@@ -360,7 +362,7 @@ if not df_raw.empty:
         st.download_button(
             label="📥 Descargar Reporte Comercial en Excel / CSV",
             data=csv_data,
-            file_name=f"Radar_SECOP_v14_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            file_name=f"Radar_SECOP_v15_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv"
         )
     else:
