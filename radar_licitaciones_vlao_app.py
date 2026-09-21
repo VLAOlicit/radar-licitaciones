@@ -97,7 +97,6 @@ def parsear_fecha_secop(val):
     try:
         dt = pd.to_datetime(val_str, errors='coerce')
         if pd.notna(dt):
-            # Remover zona horaria si existe para compatibilidad total
             if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
                 dt = dt.tz_localize(None)
             elif hasattr(dt, 'tz') and dt.tz is not None:
@@ -116,8 +115,8 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", limite=5000):
     """
     Consulta directa a la API de Colombia Compra Eficiente filtrando por:
     1. Fecha de publicación de los últimos 60 días
-    2. Sectores UNSPSC autorizados para VLAO INGENIERÍA S.A.S.
-    3. Inclusión de fecha_de_ultima_publicacion y estado_resumen
+    2. Sectores UNSPSC autorizados para VLAO INGENIERÍA S.A.S. mediante SoQL `like '%...%'`
+    3. Selección de campos válidos en la vista de SECOP II (p6dx-8zbt)
     """
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     
@@ -125,20 +124,21 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", limite=5000):
     fecha_hace_60_dias = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%dT00:00:00")
     condiciones = [f"fecha_de_publicacion >= '{fecha_hace_60_dias}'"]
     
-    # Filtro UNSPSC en la API
+    # Filtro UNSPSC en la API usando operador 'like' de SoQL
     if sector_codigo != "TODOS":
         codigos = sector_codigo.split('|')
-        sub_conds = [f"starts_with(codigo_principal_de_categoria, '{c}')" for c in codigos]
+        sub_conds = [f"codigo_principal_de_categoria like '%{c}%'" for c in codigos]
         condiciones.append(f"({' OR '.join(sub_conds)})")
     else:
-        sub_conds = [f"starts_with(codigo_principal_de_categoria, '{c}')" for c in SECTORES_VLAO_SODA]
+        sub_conds = [f"codigo_principal_de_categoria like '%{c}%'" for c in SECTORES_VLAO_SODA]
         condiciones.append(f"({' OR '.join(sub_conds)})")
         
+    # Selección de columnas oficiales existentes en el dataset p6dx-8zbt
     select_cols = (
         "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,"
         "codigo_principal_de_categoria,nombre_del_procedimiento,"
         "descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,"
-        "estado_resumen,fecha_de_publicacion,fecha_de_ultima_publicacion,"
+        "estado_resumen,fecha_de_publicacion,"
         "fecha_de_recepcion_de,urlproceso"
     )
     
@@ -178,15 +178,6 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", limite=5000):
             df['fecha_pub_dt'] = pd.NaT
             df['fecha_pub_clean'] = "Por definir"
             
-        # Fecha de Última Publicación
-        if 'fecha_de_ultima_publicacion' in df.columns:
-            res_ult = [parsear_fecha_secop(v) for v in df['fecha_de_ultima_publicacion']]
-            df['fecha_ult_pub_dt'] = [r[0] for r in res_ult]
-            df['fecha_ult_pub_clean'] = [r[1] for r in res_ult]
-        else:
-            df['fecha_ult_pub_dt'] = df['fecha_pub_dt']
-            df['fecha_ult_pub_clean'] = df['fecha_pub_clean']
-            
         # Fecha Cierre de Ofertas
         if 'fecha_de_recepcion_de' in df.columns:
             res_cie = [parsear_fecha_secop(v) for v in df['fecha_de_recepcion_de']]
@@ -212,7 +203,6 @@ def exportar_df_a_excel(df_filtrado):
         'estado_resumen': 'Estado / Etapa',
         'precio_formateado': 'Presupuesto Estimado ($ COP)',
         'fecha_pub_clean': 'Fecha Publicación',
-        'fecha_ult_pub_clean': 'Fecha Última Publicación',
         'fecha_cierre_clean': 'Fecha Cierre Ofertas',
         'urlproceso': 'Link SECOP II'
     }
@@ -340,7 +330,6 @@ if not df_raw.empty:
     # Tabla interactiva
     st.markdown(f"### 📋 Listado Operativo de Licitaciones ({len(df)} Oportunidades)")
     
-    # Preparación de visualización
     cols_mostrar = {
         'entidad': 'Entidad',
         'ciudad_entidad': 'Ciudad / Dpto',
@@ -348,7 +337,6 @@ if not df_raw.empty:
         'estado_resumen': 'Estado / Etapa',
         'precio_formateado': 'Presupuesto Estimado',
         'fecha_pub_clean': 'Fecha Publicación',
-        'fecha_ult_pub_clean': 'Última Publicación',
         'fecha_cierre_clean': 'Cierre Ofertas',
         'urlproceso': 'Link SECOP II'
     }
