@@ -5,26 +5,30 @@ import urllib.parse
 import unicodedata
 from datetime import datetime, timedelta
 
-# ---------------------------------------------------------
-# CONFIGURACIÓN DE PÁGINA E INTERFAZ SECOP II
-# ---------------------------------------------------------
+# Configuración de la página en Streamlit
 st.set_page_config(
-    page_title="Radar SECOP II v10 - Búsqueda Definitiva Multicriterio",
+    page_title="Radar SECOP II v11 - VLAO INGENIERÍA S.A.S.",
     layout="wide",
     page_icon="🎯"
 )
 
-st.title("🎯 Radar Quirúrgico SECOP II - Versión 10.0 (Filtrado de Alto Rendimiento)")
+# Estilos CSS personalizados
 st.markdown("""
-**Plataforma de Inteligencia Contractual para VLAO INGENIERÍA S.A.S. y Proponentes Interesados.**  
-*Arquitectura optimizada: Descarga en tiempo real de la base nacional de Colombia Compra Eficiente y procesamiento en memoria en Pandas con normalización Unicode de texto.*
-""")
+<style>
+    .main-title { font-size: 2.2rem; color: #1E3A8A; font-weight: bold; margin-bottom: 0px; }
+    .sub-title { font-size: 1.1rem; color: #4B5563; margin-bottom: 15px; }
+    .badge-info { background-color: #EFF6FF; color: #1E40AF; padding: 12px; border-radius: 8px; font-weight: 500; margin-bottom: 15px; border-left: 5px solid #3B82F6; }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 11.0</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (Filtros de Ciudad, Entidad, Modalidades y Contratación Directa Inteligente)</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# FUNCIONES AUXILIARES DE NORMALIZACIÓN Y LIMPIEZA
+# FUNCION AUXILIAR: NORMALIZACIÓN DE TEXTO (SIN TILDES)
 # ---------------------------------------------------------
 def normalizar_texto(texto):
-    """Elimina acentos, tildes, caracteres especiales y convierte a minúsculas."""
+    """Elimina acentos, tildes y caracteres especiales para búsquedas exactas."""
     if not texto or pd.isna(texto):
         return ""
     texto_str = str(texto)
@@ -32,36 +36,100 @@ def normalizar_texto(texto):
     sin_tildes = "".join([c for c in nfkd if unicodedata.category(c) != 'Mn'])
     return sin_tildes.lower().strip()
 
-def extraer_url(val):
-    """Extrae la URL limpia del objeto o string entregado por SODA API."""
-    if isinstance(val, dict):
-        return val.get('url', '')
-    val_str = str(val)
-    if 'http' in val_str:
-        return val_str
-    return ''
+# ---------------------------------------------------------
+# BARRA LATERAL (SIDEBAR) - CONFIGURACIÓN DE FILTROS
+# ---------------------------------------------------------
+st.sidebar.header("⚙️ Filtros Principales del Radar")
+
+# 1. Palabra Clave Libre
+palabra_clave = st.sidebar.text_input(
+    "🔎 Palabra clave (Objeto o Nombre):",
+    "",
+    placeholder="Ej: cubierta, ferreteria, mantenimiento, impermeabilizacion, suministro, redes..."
+)
+
+# 2. Ventana de Tiempo
+periodo = st.sidebar.selectbox(
+    "📅 Ventana de Tiempo (Fecha de Publicación):",
+    [
+        "Todos los procesos recientes (Recomendado)",
+        "Últimos 30 Días",
+        "Últimos 60 Días",
+        "Últimos 90 Días",
+        "Año 2026 Completo"
+    ]
+)
+
+# 3. Modalidades completas del SECOP II
+MODALIDADES_SECOP = {
+    "🌐 Todas las Modalidades (100% del SECOP II)": "TODAS",
+    "⚡ Mínima Cuantía (Sin RUP - Art. 2 Ley 1150/2007)": "MINIMA",
+    "📋 Selección Abreviada (Menor Cuantía / Subasta Inversa)": "ABREVIADA",
+    "🏛️ Licitación Pública": "LICITACION",
+    "🎓 Concurso de Méritos": "CONCURSO",
+    "📑 Contratación Directa Corporativa": "DIRECTA",
+    "🏢 Régimen Especial (Empresas Públicas, Hospitales, Universidades)": "REGIMEN_ESPECIAL",
+    "🛒 Acuerdo Marco de Precios / Tienda Virtual CCE": "ACUERDO_MARCO"
+}
+
+modalidad_sel = st.sidebar.selectbox(
+    "📜 Modalidad de Contratación:",
+    options=list(MODALIDADES_SECOP.keys())
+)
+
+# Interruptor de Contratación Directa Inteligente (Filtro Anti-OPS)
+incluir_cd_inteligente = st.sidebar.checkbox(
+    "🛡️ Contratación Directa Inteligente (Excluir OPS / Honorarios)",
+    value=True,
+    help="Al estar activado, elimina automáticamente las contrataciones directas de personas naturales (OPS) y conserva únicamente urgencias manifiestas, suministros y obras corporativas."
+)
+
+# 4. Búsqueda por Ciudad / Municipio en la consulta base
+ciudad_query = st.sidebar.text_input(
+    "📍 Búsqueda por Ciudad / Municipio:",
+    "",
+    placeholder="Ej: Bogota, Medellin, Cali, Neiva, Villavicencio..."
+)
+
+# 5. Búsqueda por Entidad Compradora en la consulta base
+entidad_query = st.sidebar.text_input(
+    "🏛️ Búsqueda por Entidad Compradora:",
+    "",
+    placeholder="Ej: SENA, Ejercito, Registraduria, ICBF, Alcaldia, Hospital..."
+)
+
+# 6. Sectores UNSPSC de VLAO INGENIERÍA S.A.S.
+CATEGORIAS_UNSPSC = {
+    "🌐 Todos los Sectores (Sin Restricción)": "TODOS",
+    "🛠️ Ferretería, Herrajes y Construcción (3116 / 3010)": "3116|3010",
+    "🔧 Herramientas de Mano y Maquinaria (2711 / 2510)": "2711|2510",
+    "⚡ Equipos, Materiales Eléctricos e Iluminación (3912 / 3911 / 2612)": "3912|3911|2612",
+    "🎨 Pinturas, Acabados e Impermeabilización (3121 / 3015)": "3121|3015",
+    "🚰 Tuberías, Plomería y Sanitarios (4014 / 4017 / 3018)": "4014|4017|3018",
+    "🏗️ Obras Civiles, Edificaciones y Mantenimiento (7210 / 7212 / 7214 / 7215)": "7210|7212|7214|7215",
+    "📐 Consultoría, Diseños e Interventoría (8110 / 8010)": "8110|8010"
+}
+
+sector_sel = st.sidebar.selectbox(
+    "🏢 Sector / Categoría UNSPSC:",
+    options=list(CATEGORIAS_UNSPSC.keys())
+)
+
+# 7. Slider de Lote de Descarga
+limite_descarga = st.sidebar.slider("📊 Muestra descargada de Datos Abiertos:", 1000, 10000, 5000, 1000)
 
 # ---------------------------------------------------------
-# DESCARGA ROBUSTA DESDE LA API DE DATOS ABIERTOS
+# DESCARGA DE DATOS EN VIVO DE DATOS.GOV.CO (SODA API)
 # ---------------------------------------------------------
 @st.cache_data(ttl=300)
-def cargar_base_secop(max_registros):
-    """
-    Descarga una muestra amplia y reciente directamente del servidor oficial de Datos Abiertos.
-    Se extraen los campos clave y se procesan en memoria para evitar bloqueos por sintaxis SoQL.
-    """
+def descargar_base_secop(limite):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
-    select_cols = (
-        "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,"
-        "codigo_principal_de_categoria,nombre_del_procedimiento,"
-        "descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,"
-        "estado_resumen,fecha_de_publicacion,fecha_de_recepcion_de,urlproceso"
-    )
+    select_cols = "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,estado_resumen,fecha_de_publicacion,fecha_de_recepcion_de,urlproceso"
     
     params = {
         "$select": select_cols,
-        "$order": "fecha_de_publicacion DESC",
-        "$limit": str(max_registros)
+        "$limit": str(limite),
+        "$order": "fecha_de_publicacion DESC"
     }
     
     headers = {
@@ -76,210 +144,170 @@ def cargar_base_secop(max_registros):
     df = pd.DataFrame(data)
     
     if not df.empty:
-        # 1. Limpieza de presupuesto
         if 'precio_base' in df.columns:
             df['precio_base'] = pd.to_numeric(df['precio_base'], errors='coerce').fillna(0)
             
-        # 2. Parseo homogéneo de fechas sin zona horaria
         if 'fecha_de_publicacion' in df.columns:
-            df['fecha_dt'] = pd.to_datetime(df['fecha_de_publicacion'], errors='coerce', format='mixed').dt.tz_localize(None)
+            df['fecha_dt'] = pd.to_datetime(df['fecha_de_publicacion'], errors='coerce')
             df['fecha_pub_clean'] = df['fecha_dt'].dt.strftime('%Y-%m-%d')
-        else:
-            df['fecha_dt'] = pd.NaT
-            df['fecha_pub_clean'] = ''
-
+            
         if 'fecha_de_recepcion_de' in df.columns:
-            df['fecha_cierre_dt'] = pd.to_datetime(df['fecha_de_recepcion_de'], errors='coerce', format='mixed').dt.tz_localize(None)
-            df['fecha_cierre_clean'] = df['fecha_cierre_dt'].dt.strftime('%Y-%m-%d %H:%M')
-        else:
-            df['fecha_cierre_clean'] = ''
-
-        # 3. Normalización de columnas para búsqueda
-        df['norm_nombre'] = df['nombre_del_procedimiento'].apply(normalizar_texto) if 'nombre_del_procedimiento' in df.columns else ""
-        df['norm_desc'] = df['descripci_n_del_procedimiento'].apply(normalizar_texto) if 'descripci_n_del_procedimiento' in df.columns else ""
-        df['norm_mod'] = df['modalidad_de_contratacion'].apply(normalizar_texto) if 'modalidad_de_contratacion' in df.columns else ""
-        df['norm_entidad'] = df['entidad'].apply(normalizar_texto) if 'entidad' in df.columns else ""
-        df['norm_ciudad'] = df['ciudad_entidad'].apply(normalizar_texto) if 'ciudad_entidad' in df.columns else ""
-        df['norm_depto'] = df['departamento_entidad'].apply(normalizar_texto) if 'departamento_entidad' in df.columns else ""
-        
+            df['fecha_cierre_clean'] = pd.to_datetime(df['fecha_de_recepcion_de'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M')
+            
     return df
 
-# ---------------------------------------------------------
-# BARRA LATERAL - CONTROLES Y FILTROS
-# ---------------------------------------------------------
-st.sidebar.header("⚙️ Configuración del Radar")
-
-# Slider de límite de datos a consultar
-limite_descarga = st.sidebar.slider(
-    "📊 Tamaño del lote descargado del SECOP II:",
-    min_value=1000, max_value=10000, value=5000, step=1000,
-    help="Aumenta este valor si deseas explorar un histórico más amplio de licitaciones."
-)
-
-with st.spinner("🚀 Conectando directamente con la API del SECOP II..."):
+with st.spinner("🚀 Conectando en vivo con la base de datos del SECOP II (Datos Abiertos Colombia)..."):
     try:
-        raw_df = cargar_base_secop(limite_descarga)
+        df_raw = descargar_base_secop(limite_descarga)
     except Exception as e:
-        st.error(f"Error técnico al conectar con Datos Abiertos: {e}")
-        raw_df = pd.DataFrame()
+        st.error(f"Error técnico de conexión con el servidor de Datos Abiertos: {e}")
+        df_raw = pd.DataFrame()
 
-if not raw_df.empty:
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔎 Filtros de Búsqueda Quirúrgica")
+# ---------------------------------------------------------
+# MOTOR DE FILTRADO INTELIGENTE EN MEMORIA (PANDAS)
+# ---------------------------------------------------------
+if not df_raw.empty:
+    df = df_raw.copy()
+    
+    # Pre-crear columnas normalizadas sin tildes para filtros instantáneos
+    df['nom_norm'] = df['nombre_del_procedimiento'].apply(normalizar_texto)
+    df['desc_norm'] = df['descripci_n_del_procedimiento'].apply(normalizar_texto)
+    df['mod_norm'] = df['modalidad_de_contratacion'].apply(normalizar_texto)
+    df['ciudad_norm'] = df['ciudad_entidad'].apply(normalizar_texto)
+    df['entidad_norm'] = df['entidad'].apply(normalizar_texto)
+    df['depto_norm'] = df['departamento_entidad'].apply(normalizar_texto)
+    
+    # A. Filtro Anti-OPS en Contratación Directa
+    if incluir_cd_inteligente:
+        # Identificar filas de contratación directa
+        is_cd = df['mod_norm'].str.contains('directa', na=False)
+        # Términos típicamente de OPS
+        terms_ops = 'prestacion de servicios|apoyo a la gestion|honorarios|profesionales|persona natural'
+        is_ops = df['nom_norm'].str.contains(terms_ops, na=False) | df['desc_norm'].str.contains(terms_ops, na=False)
+        # Términos corporativos que rescatan el proceso
+        terms_corp = 'suministro|compra|adquisicion|obra|mantenimiento|adecuacion|impermeabilizacion|cubierta|equipos|materiales|interventoria'
+        is_corp = df['nom_norm'].str.contains(terms_corp, na=False) | df['desc_norm'].str.contains(terms_corp, na=False)
+        
+        # Descartar si es CD y es OPS y no es corporativo
+        descartar_ops = is_cd & is_ops & (~is_corp)
+        df = df[~descartar_ops]
 
-    # 1. Palabra Clave
-    kw_input = st.sidebar.text_input(
-        "🔎 Palabra Clave (Objeto / Nombre):",
-        value="",
-        placeholder="Ej: cubierta, ferreteria, mantenimiento, herramientas..."
-    )
+    # B. Filtro de Palabra Clave libre
+    if palabra_clave.strip():
+        pk = normalizar_texto(palabra_clave)
+        cond_nom = df['nom_norm'].str.contains(pk, na=False)
+        cond_desc = df['desc_norm'].str.contains(pk, na=False)
+        df = df[cond_nom | cond_desc]
 
-    # 2. Ventana de Tiempo
-    opciones_periodo = [
-        "Todos los procesos descargados (Sin restricción de fecha)",
-        "Últimos 30 Días",
-        "Últimos 60 Días",
-        "Últimos 90 Días",
-        "Año 2026 Completo"
-    ]
-    periodo_sel = st.sidebar.selectbox("📅 Ventana de Tiempo (Publicación):", opciones_periodo)
-
-    # 3. Modalidad de Contratación
-    MODALIDADES_DICT = {
-        "🌐 Todas las Modalidades (100% SECOP II)": "TODAS",
-        "⚡ Mínima Cuantía (Sin RUP - Art. 2 Ley 1150/2007)": "MINIMA",
-        "📋 Selección Abreviada (Menor Cuantía / Subasta)": "ABREVIADA",
-        "🏛️ Licitación Pública": "LICITACION",
-        "🎓 Concurso de Méritos": "CONCURSO",
-        "📑 Contratación Directa": "DIRECTA",
-        "🏢 Régimen Especial (Empresas Públicas, E.S.E.)": "REGIMEN_ESPECIAL",
-        "🛒 Acuerdo Marco / Tienda Virtual CCE": "ACUERDO_MARCO"
-    }
-    modalidad_sel = st.sidebar.selectbox("📜 Modalidad de Contratación:", options=list(MODALIDADES_DICT.keys()))
-
-    # 4. Categoría UNSPSC
-    CATEGORIAS_UNSPSC = {
-        "🌐 Todos los Sectores (Sin Restricción)": "TODOS",
-        "🛠️ Ferretería y Herrajes (3116)": "3116",
-        "🔧 Herramientas de Mano (2711)": "2711",
-        "🏗️ Materiales de Construcción (3010 / 3019)": "3010",
-        "⚡ Equipos y Suministros Eléctricos (3912)": "3912",
-        "🎨 Pinturas y Recubrimientos (3121)": "3121",
-        "🚰 Tuberías y Plomería (4014)": "4014",
-        "💡 Iluminación y Luminarias (3911)": "3911",
-        "💻 Tecnología, Software y Comunicaciones (4321/4323)": "4321",
-        "🏥 Salud y Equipos Médicos (4200/5100)": "4200",
-        "🚗 Vehículos y Maquinaria (2510/7818)": "2510",
-        "🛡️ Vigilancia y Seguridad (9212)": "9212"
-    }
-    sector_sel = st.sidebar.selectbox("🏢 Sector / Categoría UNSPSC:", options=list(CATEGORIAS_UNSPSC.keys()))
-
-    # 5. Filtro de Ubicación
-    ciudad_kw = st.sidebar.text_input("📍 Ciudad / Municipio:", value="", placeholder="Ej: Bogota, Medellin, Cali, Neiva...")
-    entidad_kw = st.sidebar.text_input("🏛️ Entidad Compradora:", value="", placeholder="Ej: SENA, Alcaldia, Ejercito, Hospital...")
-
-    # ---------------------------------------------------------
-    # PROCESAMIENTO MULTICRITERIO EN PANDAS
-    # ---------------------------------------------------------
-    df = raw_df.copy()
-
-    # A. Filtro por Palabra Clave
-    if kw_input.strip():
-        pk = normalizar_texto(kw_input)
-        df = df[df['norm_nombre'].str.contains(pk, na=False) | df['norm_desc'].str.contains(pk, na=False)]
-
-    # B. Filtro por Fecha
-    if "Sin restricción" not in periodo_sel and df['fecha_dt'].notna().any():
+    # C. Filtro de Ventana de Tiempo
+    if 'fecha_dt' in df.columns and df['fecha_dt'].notna().any():
         max_fecha = df['fecha_dt'].max()
-        if "30 Días" in periodo_sel:
-            corte = max_fecha - timedelta(days=30)
+        if "30 Días" in periodo:
+            corte = max_fecha - pd.Timedelta(days=30)
             df = df[df['fecha_dt'] >= corte]
-        elif "60 Días" in periodo_sel:
-            corte = max_fecha - timedelta(days=60)
+        elif "60 Días" in periodo:
+            corte = max_fecha - pd.Timedelta(days=60)
             df = df[df['fecha_dt'] >= corte]
-        elif "90 Días" in periodo_sel:
-            corte = max_fecha - timedelta(days=90)
+        elif "90 Días" in periodo:
+            corte = max_fecha - pd.Timedelta(days=90)
             df = df[df['fecha_dt'] >= corte]
-        elif "Año 2026" in periodo_sel:
+        elif "Año 2026" in periodo:
             df = df[df['fecha_dt'] >= pd.Timestamp('2026-01-01')]
 
-    # C. Filtro por Modalidad
-    cod_mod = MODALIDADES_DICT[modalidad_sel]
+    # D. Filtro de Modalidad
+    cod_mod = MODALIDADES_SECOP[modalidad_sel]
     if cod_mod == "MINIMA":
-        df = df[df['norm_mod'].str.contains('minima|cuantia', na=False)]
+        df = df[df['mod_norm'].str.contains('minima|cuantia', na=False)]
     elif cod_mod == "ABREVIADA":
-        df = df[df['norm_mod'].str.contains('abreviada|subasta|menor cuantia', na=False)]
+        df = df[df['mod_norm'].str.contains('abreviada|subasta|menor cuantia', na=False)]
     elif cod_mod == "LICITACION":
-        df = df[df['norm_mod'].str.contains('licitacion|licitacion publica', na=False)]
+        df = df[df['mod_norm'].str.contains('licitacion', na=False)]
     elif cod_mod == "CONCURSO":
-        df = df[df['norm_mod'].str.contains('concurso|meritos', na=False)]
+        df = df[df['mod_norm'].str.contains('concurso|meritos', na=False)]
     elif cod_mod == "DIRECTA":
-        df = df[df['norm_mod'].str.contains('directa', na=False)]
+        df = df[df['mod_norm'].str.contains('directa', na=False)]
     elif cod_mod == "REGIMEN_ESPECIAL":
-        df = df[df['norm_mod'].str.contains('especial|regimen', na=False)]
+        df = df[df['mod_norm'].str.contains('especial|regimen', na=False)]
     elif cod_mod == "ACUERDO_MARCO":
-        df = df[df['norm_mod'].str.contains('marco|tienda', na=False)]
+        df = df[df['mod_norm'].str.contains('marco|tienda', na=False)]
 
-    # D. Filtro por Categoría UNSPSC
+    # E. Filtro por Ciudad / Municipio (Barra lateral)
+    if ciudad_query.strip():
+        cq = normalizar_texto(ciudad_query)
+        df = df[df['ciudad_norm'].str.contains(cq, na=False)]
+
+    # F. Filtro por Entidad Compradora (Barra lateral)
+    if entidad_query.strip():
+        eq = normalizar_texto(entidad_query)
+        df = df[df['entidad_norm'].str.contains(eq, na=False)]
+
+    # G. Filtro por Sector UNSPSC
     cod_cat = CATEGORIAS_UNSPSC[sector_sel]
     if cod_cat != "TODOS" and 'codigo_principal_de_categoria' in df.columns:
-        df = df[df['codigo_principal_de_categoria'].astype(str).str.contains(cod_cat, na=False)]
-
-    # E. Filtro por Ciudad
-    if ciudad_kw.strip():
-        ckw = normalizar_texto(ciudad_kw)
-        df = df[df['norm_ciudad'].str.contains(ckw, na=False)]
-
-    # F. Filtro por Entidad
-    if entidad_kw.strip():
-        ekw = normalizar_texto(entidad_kw)
-        df = df[df['norm_entidad'].str.contains(ekw, na=False)]
+        pattern = cod_cat
+        df = df[df['codigo_principal_de_categoria'].astype(str).str.contains(pattern, na=False)]
 
     # ---------------------------------------------------------
-    # DESPLIEGUE DE RESULTADOS Y FILTROS INTERACTIVOS EN PANTALLA
+    # FILTROS EN PANTALLA (DESPLEGABLES SOBRE LA TABLA)
     # ---------------------------------------------------------
-    st.markdown(f"📊 **Lote Base Descargado:** `{len(raw_df):,}` procesos recientes | 🎯 **Coincidencias Filtradas:** `{len(df):,}` licitaciones")
-
-    if not df.empty:
-        # Filtros secundarios interactivos en pantalla (Multiselect sobre resultados)
-        st.markdown("##### 🎛️ Refinar Resultados en Pantalla (Filtro Rápido)")
-        f_col1, f_col2, f_col3 = st.columns(3)
+    st.markdown(f'<div class="badge-info">📊 <b>Muestra examinada del SECOP II:</b> {len(df_raw):,} registros descargados | <b>Coincidencias encontradas:</b> {len(df):,} procesos.</div>', unsafe_allow_html=True)
+    
+    st.subheader("🔍 Filtros Interactivos sobre la Tabla de Resultados")
+    f_col1, f_col2, f_col3 = st.columns(3)
+    
+    with f_col1:
+        ciudades_disp = sorted(df['ciudad_entidad'].dropna().unique())
+        ciudad_f = st.multiselect("📍 Filtrar por Ciudad / Municipio:", options=ciudades_disp, default=[])
         
-        with f_col1:
-            list_deptos = sorted([d for d in df['departamento_entidad'].dropna().unique() if d])
-            sel_deptos = st.multiselect("Filtrar por Departamento:", options=list_deptos)
-        with f_col2:
-            list_ciudades = sorted([c for c in df['ciudad_entidad'].dropna().unique() if c])
-            sel_ciudades = st.multiselect("Filtrar por Ciudad / Municipio:", options=list_ciudades)
-        with f_col3:
-            list_entidades = sorted([e for e in df['entidad'].dropna().unique() if e])
-            sel_entidades = st.multiselect("Filtrar por Entidad Compradora:", options=list_entidades)
+    with f_col2:
+        entidades_disp = sorted(df['entidad'].dropna().unique())
+        entidad_f = st.multiselect("🏛️ Filtrar por Entidad Compradora:", options=entidades_disp, default=[])
+        
+    with f_col3:
+        modalidades_disp = sorted(df['modalidad_de_contratacion'].dropna().unique())
+        modalidad_f = st.multiselect("📜 Filtrar por Modalidad Exacta:", options=modalidades_disp, default=[])
 
-        if sel_deptos:
-            df = df[df['departamento_entidad'].isin(sel_deptos)]
-        if sel_ciudades:
-            df = df[df['ciudad_entidad'].isin(sel_ciudades)]
-        if sel_entidades:
-            df = df[df['entidad'].isin(sel_entidades)]
+    # Aplicar selecciones en pantalla
+    if ciudad_f:
+        df = df[df['ciudad_entidad'].isin(ciudad_f)]
+    if entidad_f:
+        df = df[df['entidad'].isin(entidad_f)]
+    if modalidad_f:
+        df = df[df['modalidad_de_contratacion'].isin(modalidad_f)]
 
-        # Métricas Clave
-        m1, m2, m3, m4 = st.columns(4)
-        with m1:
-            st.metric("Licitaciones Visibles", f"{len(df):,}")
-        with m2:
-            st.metric("Bolsa Total Disponible", f"${df['precio_base'].sum():,.0f} COP")
-        with m3:
-            top_depto = df['departamento_entidad'].value_counts().index[0] if 'departamento_entidad' in df.columns and not df.empty else "N/A"
-            st.metric("Departamento Líder", top_depto)
-        with m4:
-            top_mod = df['modalidad_de_contratacion'].value_counts().index[0] if 'modalidad_de_contratacion' in df.columns and not df.empty else "N/A"
-            st.metric("Modalidad Dominante", top_mod[:20])
+    # ---------------------------------------------------------
+    # DESPLIEGUE DE RESULTADOS Y METRICAS
+    # ---------------------------------------------------------
+    if not df.empty:
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Licitaciones Activas", f"{len(df):,}")
+        with col2:
+            st.metric("Bolsa Presupuestada ($)", f"${df['precio_base'].sum():,.0f} COP")
+        with col3:
+            dep_top = df['departamento_entidad'].value_counts().index[0] if ('departamento_entidad' in df.columns and not df.empty) else "N/A"
+            st.metric("Departamento Líder", f"{dep_top}")
+        with col4:
+            muni_top = df['ciudad_entidad'].value_counts().index[0] if ('ciudad_entidad' in df.columns and not df.empty) else "N/A"
+            st.metric("Municipio Líder", f"{muni_top}")
 
         st.markdown("---")
+        st.subheader("📋 Matriz Operativa de Licitaciones para VLAO INGENIERÍA S.A.S.")
 
-        # Preparación de la Tabla
+        # Limpiar URL del proceso
+        def extraer_url(val):
+            if isinstance(val, dict):
+                return val.get('url', '')
+            val_str = str(val)
+            if 'http' in val_str:
+                return val_str
+            return ''
+
         data_display = df.copy()
-        data_display['url_clean'] = data_display['urlproceso'].apply(extraer_url) if 'urlproceso' in data_display.columns else ""
+        if 'urlproceso' in data_display.columns:
+            data_display['url_clean'] = data_display['urlproceso'].apply(extraer_url)
+        else:
+            data_display['url_clean'] = ''
 
         cols_map = {
             'referencia_del_proceso': 'Proceso',
@@ -307,19 +335,19 @@ if not raw_df.empty:
             hide_index=True
         )
 
-        csv_data = data_final.to_csv(index=False).encode('utf-8')
+        csv_data = data_final.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
-            label="📥 Descargar Reporte Personalizado en CSV / Excel",
+            label="📥 Descargar Reporte Comercial en Excel / CSV",
             data=csv_data,
-            file_name=f"Radar_SECOP_v10_{datetime.now().strftime('%Y%m%d')}.csv",
+            file_name=f"Radar_SECOP_v11_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv"
         )
     else:
         st.warning("⚠️ No se encontraron procesos que coincidan con la combinación exacta de filtros seleccionada.")
         st.info("""
-        💡 **Sugerencia:**
-        * Si aplicaste múltiples criterios a la vez (ej. *Licitación Pública + Ciudad Específica + Palabra Clave*), intenta borrar la ciudad o cambiar la ventana a **'Todos los procesos descargados'** para ampliar la muestra.
-        * Puedes aumentar el **'Tamaño del lote descargado'** en el control superior de la barra lateral a 10,000 registros para revisar un periodo más amplio del SECOP II.
+        💡 **Sugerencias de búsqueda:**
+        * Si aplicaste un filtro estricto por ciudad o palabra clave, prueba desmarcando los desplegables de selección múltiple en pantalla.
+        * Asegúrate de tener seleccionada la opción **'🌐 Todas las Modalidades'** o **'Todos los procesos recientes'** para ampliar la búsqueda.
         """)
 else:
-    st.error("No se pudieron cargar datos del SECOP II. Verifica la conexión con la API de Datos Abiertos.")
+        st.error("No fue posible descargar datos del SECOP II. Por favor refresca la aplicación.")
