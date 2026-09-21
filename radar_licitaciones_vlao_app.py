@@ -38,19 +38,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">🎯 Radar Quirúrgico SECOP II - Versión 16.0</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (Filtros en Origen 60 Días + Sectores UNSPSC + Conteo Dinámico)</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title"><b>VLAO INGENIERÍA S.A.S.</b> | Módulo Operativo de Oportunidades (SODA API Conexión Robusta + Multimodalidad + Excel Clean)</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# DICCIONARIO DE SECTORES UNSPSC HABILITADOS (VLAO INGENIERÍA S.A.S.)
+# DICCIONARIOS DE SECTORES, MODALIDADES Y ESTADOS
 # ==============================================================================
 CATEGORIAS_UNSPSC = {
     "🌐 Todos los Sectores VLAO (Portafolio Completo)": "TODOS",
+    "🏗️ Obras Civiles, Edificaciones y Mantenimiento (7210 / 7212 / 7214 / 7215)": "7210|7212|7214|7215",
+    "⚡ Equipos, Materiales Eléctricos e Iluminación (3912 / 3911 / 2612)": "3912|3911|2612",
     "🛠️ Ferretería, Herrajes y Construcción (3116 / 3010)": "3116|3010",
     "🔧 Herramientas de Mano y Maquinaria (2711 / 2510)": "2711|2510",
-    "⚡ Equipos, Materiales Eléctricos e Iluminación (3912 / 3911 / 2612)": "3912|3911|2612",
     "🎨 Pinturas, Acabados e Impermeabilización (3121 / 3015)": "3121|3015",
     "🚰 Tuberías, Plomería y Sanitarios (4014 / 4017 / 3018)": "4014|4017|3018",
-    "🏗️ Obras Civiles, Edificaciones y Mantenimiento (7210 / 7212 / 7214 / 7215)": "7210|7212|7214|7215",
     "📐 Consultoría, Diseños e Interventoría (8110 / 8010)": "8110|8010"
 }
 
@@ -59,6 +59,24 @@ SECTORES_VLAO_SODA = [
     '3015', '4014', '4017', '3018', '7210', '7212', '7214', '7215',
     '8110', '8010'
 ]
+
+MODALIDADES_SODA = {
+    "🌐 Todas las Modalidades (Licitación, Selección Abreviada, Mínima, etc.)": "TODAS",
+    "🏛️ Licitación Pública": "LICITACION",
+    "📋 Selección Abreviada (Menor Cuantía / Subasta)": "ABREVIADA",
+    "⚡ Mínima Cuantía": "MINIMA",
+    "🎓 Concurso de Méritos": "CONCURSO",
+    "📑 Contratación Directa Corporativa": "DIRECTA",
+    "🏢 Régimen Especial": "REGIMEN_ESPECIAL"
+}
+
+ESTADOS_SODA = {
+    "📌 Todos los Estados / Etapas": "TODOS",
+    "📝 Presentación de Ofertas / Convocatoria": "OFERTAS",
+    "💬 Presentación de Observaciones / Pliegos": "OBSERVACIONES",
+    "🙋 Manifestación de Interés": "INTERES",
+    "📄 Borrador / Proyecto de Pliegos": "BORRADOR"
+}
 
 # ==============================================================================
 # FUNCIONES AUXILIARES: NORMALIZACIÓN, FORMATOS Y FECHAS (TZ-NAIVE)
@@ -108,32 +126,20 @@ def parsear_fecha_secop(val):
     return pd.NaT, val_str[:10] if len(val_str) >= 10 else val_str
 
 # ==============================================================================
-# CONEXIÓN Y DESCARGA FILTRADA EN SERVIDOR (SODA API - DATOS.GOV.CO)
+# CONEXIÓN ROBUSTA Y DESCARGA FILTRADA (SODA API CON FALLBACK AUTOMÁTICO)
 # ==============================================================================
 @st.cache_data(ttl=300)
-def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", limite=5000):
+def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="TODAS", estado_codigo="TODOS", limite=5000):
     """
-    Consulta directa a la API de Colombia Compra Eficiente filtrando por:
-    1. Fecha de publicación de los últimos 60 días
-    2. Sectores UNSPSC autorizados para VLAO INGENIERÍA S.A.S. mediante SoQL `like '%...%'`
-    3. Selección de campos válidos en la vista de SECOP II (p6dx-8zbt)
+    Consulta directa a la API SODA de Colombia Compra Eficiente con recuperación inteligente:
+    1. Intenta consulta filtrada en servidor SoQL.
+    2. Si la API de Datos Abiertos responde con HTTP 400/500 (por consultas complejas),
+       ejecuta un fallback seguro de descarga base y aplica el filtro en memoria con Pandas.
     """
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     
-    # Límite de tiempo: Hace 60 días
     fecha_hace_60_dias = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%dT00:00:00")
-    condiciones = [f"fecha_de_publicacion >= '{fecha_hace_60_dias}'"]
     
-    # Filtro UNSPSC en la API usando operador 'like' de SoQL
-    if sector_codigo != "TODOS":
-        codigos = sector_codigo.split('|')
-        sub_conds = [f"codigo_principal_de_categoria like '%{c}%'" for c in codigos]
-        condiciones.append(f"({' OR '.join(sub_conds)})")
-    else:
-        sub_conds = [f"codigo_principal_de_categoria like '%{c}%'" for c in SECTORES_VLAO_SODA]
-        condiciones.append(f"({' OR '.join(sub_conds)})")
-        
-    # Selección de columnas oficiales existentes en el dataset p6dx-8zbt
     select_cols = (
         "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,"
         "codigo_principal_de_categoria,nombre_del_procedimiento,"
@@ -142,7 +148,40 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", limite=5000):
         "fecha_de_recepcion_de,urlproceso"
     )
     
-    params = {
+    # Construcción limpia de cláusula SoQL ($where)
+    condiciones = [f"fecha_de_publicacion >= '{fecha_hace_60_dias}'"]
+    
+    # 1. Sectores UNSPSC
+    if sector_codigo != "TODOS":
+        codigos = sector_codigo.split('|')
+        sub_c = [f"codigo_principal_de_categoria like '%{c}%'" for c in codigos]
+        condiciones.append(f"({' OR '.join(sub_c)})")
+    
+    # 2. Modalidad de Contratación
+    if modalidad_codigo == "LICITACION":
+        condiciones.append("lower(modalidad_de_contratacion) like '%licitac%'")
+    elif modalidad_codigo == "ABREVIADA":
+        condiciones.append("lower(modalidad_de_contratacion) like '%abreviad%'")
+    elif modalidad_codigo == "MINIMA":
+        condiciones.append("(lower(modalidad_de_contratacion) like '%minima%' or lower(modalidad_de_contratacion) like '%mínima%')")
+    elif modalidad_codigo == "CONCURSO":
+        condiciones.append("lower(modalidad_de_contratacion) like '%concurso%'")
+    elif modalidad_codigo == "DIRECTA":
+        condiciones.append("lower(modalidad_de_contratacion) like '%directa%'")
+    elif modalidad_codigo == "REGIMEN_ESPECIAL":
+        condiciones.append("(lower(modalidad_de_contratacion) like '%regimen%' or lower(modalidad_de_contratacion) like '%régimen%')")
+
+    # 3. Estado / Etapa del proceso
+    if estado_codigo == "OFERTAS":
+        condiciones.append("(lower(estado_resumen) like '%oferta%' or lower(estado_resumen) like '%convocatoria%')")
+    elif estado_codigo == "OBSERVACIONES":
+        condiciones.append("lower(estado_resumen) like '%observac%'")
+    elif estado_codigo == "INTERES":
+        condiciones.append("(lower(estado_resumen) like '%interes%' or lower(estado_resumen) like '%interés%')")
+    elif estado_codigo == "BORRADOR":
+        condiciones.append("lower(estado_resumen) like '%borrador%'")
+
+    params_primary = {
         "$select": select_cols,
         "$where": " AND ".join(condiciones),
         "$order": "fecha_de_publicacion DESC",
@@ -153,11 +192,25 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", limite=5000):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
     }
     
-    url = f"{base_url}?{urllib.parse.urlencode(params)}"
-    resp = requests.get(url, headers=headers, timeout=35)
-    resp.raise_for_status()
-    
-    data = resp.json()
+    # Intento 1: Consulta SoQL Servidor
+    try:
+        url = f"{base_url}?{urllib.parse.urlencode(params_primary)}"
+        resp = requests.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception:
+        # Intento 2 (Fallback Seguro): Descarga base limpia sin $where complejo
+        params_fallback = {
+            "$select": select_cols,
+            "$where": f"fecha_de_publicacion >= '{fecha_hace_60_dias}'",
+            "$order": "fecha_de_publicacion DESC",
+            "$limit": str(limite)
+        }
+        url_fb = f"{base_url}?{urllib.parse.urlencode(params_fallback)}"
+        resp = requests.get(url_fb, headers=headers, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+
     df = pd.DataFrame(data)
     
     if not df.empty:
@@ -188,7 +241,7 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", limite=5000):
     return df
 
 # ==============================================================================
-# EXPORTACIÓN SEGURA A EXCEL (OPENPYXL - SIN ERRORES DE TIMEZONE)
+# EXPORTACIÓN SEGURA A EXCEL (OPENPYXL)
 # ==============================================================================
 def exportar_df_a_excel(df_filtrado):
     df_export = df_filtrado.copy()
@@ -216,9 +269,9 @@ def exportar_df_a_excel(df_filtrado):
     return buffer.getvalue()
 
 # ==============================================================================
-# BARRA LATERAL (SIDEBAR) CON FILTROS Y CONTEO DE VISUALIZACIONES
+# BARRA LATERAL (SIDEBAR) CON FILTROS EN ORIGEN Y MEMORIA
 # ==============================================================================
-st.sidebar.header("⚙️ Filtros Inteligentes VLAO")
+st.sidebar.header("⚙️ Filtros Inteligentes SODA API")
 
 # 1. Slider de Lote de Descarga
 limite_descarga = st.sidebar.slider("📊 Lote máximo a recuperar de la API:", 1000, 20000, 5000, 1000)
@@ -230,41 +283,73 @@ sector_sel = st.sidebar.selectbox(
 )
 codigo_sector = CATEGORIAS_UNSPSC[sector_sel]
 
-# Cargar Datos iniciales filtrados en origen
-with st.spinner("🚀 Conectando con SECOP II (Últimos 60 Días + Sectores VLAO)..."):
+# 3. Modalidad de Contratación
+modalidad_sel = st.sidebar.selectbox(
+    "📜 Modalidad de Contratación:",
+    options=list(MODALIDADES_SODA.keys())
+)
+codigo_modalidad = MODALIDADES_SODA[modalidad_sel]
+
+# 4. Estado / Etapa del Proceso
+estado_sel = st.sidebar.selectbox(
+    "📌 Etapa / Estado del Proceso:",
+    options=list(ESTADOS_SODA.keys())
+)
+codigo_estado = ESTADOS_SODA[estado_sel]
+
+# Cargar Datos iniciales
+with st.spinner("🚀 Consultando base nacional de SECOP II (Datos Abiertos Colombia)..."):
     try:
-        df_raw = descargar_base_secop_vlao_60dias(sector_codigo=codigo_sector, limite=limite_descarga)
+        df_raw = descargar_base_secop_vlao_60dias(
+            sector_codigo=codigo_sector,
+            modalidad_codigo=codigo_modalidad,
+            estado_codigo=codigo_estado,
+            limite=limite_descarga
+        )
     except Exception as e:
         st.error(f"Error de conexión con Datos Abiertos: {e}")
         df_raw = pd.DataFrame()
 
 if not df_raw.empty:
     df = df_raw.copy()
-    
-    # 3. Conteo dinámico de Visualizaciones por Estado / Etapa
-    if 'estado_resumen' in df.columns:
-        conteo_estados = df['estado_resumen'].value_counts()
-        opciones_estado = [f"Todos los Estados ({len(df)})"] + [f"{est} ({cant})" for est, cant in conteo_estados.items()]
-        
-        estado_sel_raw = st.sidebar.selectbox("📌 Etapa / Estado del Proceso:", options=opciones_estado)
-        if not estado_sel_raw.startswith("Todos los Estados"):
-            estado_limpio = estado_sel_raw.rsplit(" (", 1)[0]
-            df = df[df['estado_resumen'] == estado_limpio]
 
-    # 4. Conteo dinámico por Modalidad
+    # Filtrado complementario de seguridad en Pandas
+    if codigo_sector != "TODOS":
+        cods = codigo_sector.split('|')
+        def coincide_unspsc(val):
+            val_s = str(val)
+            return any(c in val_s for c in cods)
+        if 'codigo_principal_de_categoria' in df.columns:
+            df = df[df['codigo_principal_de_categoria'].apply(coincide_unspsc)]
+    else:
+        # Si es TODOS, asegurar que pertenezca a alguno de los sectores de VLAO
+        def coincide_vlao(val):
+            val_s = str(val)
+            return any(c in val_s for c in SECTORES_VLAO_SODA)
+        if 'codigo_principal_de_categoria' in df.columns:
+            df = df[df['codigo_principal_de_categoria'].apply(coincide_vlao)]
+
+    if codigo_modalidad != "TODAS" and 'modalidad_de_contratacion' in df.columns:
+        kw_mod = normalizar_texto(modalidad_sel.split(' ')[1] if ' ' in modalidad_sel else modalidad_sel)
+        df = df[df['modalidad_de_contratacion'].apply(normalizar_texto).str.contains(kw_mod[:5])]
+
+    # Despliegue de resúmenes de conteo en la barra lateral
     if 'modalidad_de_contratacion' in df.columns:
-        conteo_modalidades = df['modalidad_de_contratacion'].value_counts()
-        opciones_modalidad = [f"Todas las Modalidades ({len(df)})"] + [f"{mod} ({cant})" for mod, cant in conteo_modalidades.items()]
-        
-        mod_sel_raw = st.sidebar.selectbox("📜 Modalidad de Contratación:", options=opciones_modalidad)
-        if not mod_sel_raw.startswith("Todas las Modalidades"):
-            mod_limpia = mod_sel_raw.rsplit(" (", 1)[0]
-            df = df[df['modalidad_de_contratacion'] == mod_limpia]
+        conteo_mod = df['modalidad_de_contratacion'].value_counts()
+        st.sidebar.markdown("**📜 Modalidades en Pantalla:**")
+        for mod_k, cant in conteo_mod.head(5).items():
+            st.sidebar.caption(f"• {mod_k}: **{cant}**")
+
+    if 'estado_resumen' in df.columns:
+        conteo_est = df['estado_resumen'].value_counts()
+        st.sidebar.markdown("**📌 Estados en Pantalla:**")
+        for est_k, cant in conteo_est.head(5).items():
+            st.sidebar.caption(f"• {est_k}: **{cant}**")
 
     # 5. Filtro Anti-OPS (Contratación Directa Inteligente)
     incluir_cd_inteligente = st.sidebar.checkbox(
         "🛡️ Filtro Anti-OPS (Excluir Contratación Directa de Personas Naturales)",
-        value=True,
+        value=False,
         help="Elimina prestación de servicios profesionales individuales y conserva urgencias y contratos corporativos."
     )
     if incluir_cd_inteligente and 'modalidad_de_contratacion' in df.columns and 'nombre_del_procedimiento' in df.columns:
@@ -292,7 +377,7 @@ if not df_raw.empty:
             df['ciudad_entidad'].apply(normalizar_texto).str.contains(q_norm) |
             df['departamento_entidad'].apply(normalizar_texto).str.contains(q_norm)
         ]
-        st.sidebar.caption(f"🔎 Coincidencias encontradas: **{len(df)}**")
+        st.sidebar.caption(f"🔎 Coincidencias en ubicación: **{len(df)}**")
 
     # 7. Búsqueda por Palabra Clave Libre
     palabra_clave = st.sidebar.text_input(
@@ -334,6 +419,7 @@ if not df_raw.empty:
         'entidad': 'Entidad',
         'ciudad_entidad': 'Ciudad / Dpto',
         'nombre_del_procedimiento': 'Objeto del Contrato',
+        'modalidad_de_contratacion': 'Modalidad',
         'estado_resumen': 'Estado / Etapa',
         'precio_formateado': 'Presupuesto Estimado',
         'fecha_pub_clean': 'Fecha Publicación',
@@ -367,4 +453,4 @@ if not df_raw.empty:
     )
 
 else:
-    st.warning("⚠️ No se encontraron resultados que coincidan con los filtros aplicados. Intenta ampliar el rango o borrar las palabras clave.")
+    st.warning("⚠️ No se encontraron resultados con los filtros seleccionados. Te sugerimos seleccionar 'Todas las Modalidades' o aumentar la muestra en la barra lateral.")
