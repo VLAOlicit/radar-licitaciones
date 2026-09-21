@@ -1,88 +1,92 @@
 import streamlit as st
 import pandas as pd
 import requests
-import json
-from datetime import datetime
+import io
+import urllib.parse
+import datetime
 
-# Configuración de página
+# Configuración de la página
 st.set_page_config(
     page_title="Radar de Licitaciones SECOP II - VLAO INGENIERÍA S.A.S.",
-    page_icon="🎯",
+    page_icon="🏗️",
     layout="wide"
 )
 
-st.title("🎯 Radar Quirúrgico de Licitaciones SECOP II")
+# Estilos CSS
 st.markdown("""
-Plataforma en tiempo real para rastrear oportunidades de contratación pública en Colombia (*Datos Abiertos / SECOP II*).
-Encuentra procesos de **Mínima Cuantía (Sin RUP)**, **Selección Abreviada**, **Licitaciones** y más en todos los sectores.
-""")
+<style>
+    .main-title { font-size: 2.2rem; color: #1E3A8A; font-weight: bold; margin-bottom: 0px; }
+    .sub-title { font-size: 1.1rem; color: #4B5563; margin-bottom: 20px; }
+    .badge-info { background-color: #EFF6FF; color: #1E40AF; padding: 12px; border-radius: 8px; font-weight: 500; margin-bottom: 15px; border-left: 5px solid #3B82F6; }
+</style>
+""", unsafe_allow_html=True)
 
-# Sidebar - Filtros de Búsqueda
-st.sidebar.header("🔍 Filtros de Búsqueda")
+st.markdown('<div class="main-title">🎯 Radar Quirúrgico de Licitaciones SECOP II</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">VLAO INGENIERÍA S.A.S. | Módulo Operativo de Búsqueda y Selección de Procesos</div>', unsafe_allow_html=True)
 
-# 1. Cantidad a consultar
-limite = st.sidebar.slider("📊 Registros a consultar del SECOP II:", min_value=1000, max_value=5000, value=3000, step=500)
+# Categorías UNSPSC
+CATEGORIAS_UNSPSC = {
+    "🌐 Todos los Sectores (Sin Restricción)": "TODOS",
+    "🛠️ Ferretería y Herrajes (3116)": "3116",
+    "🔧 Herramientas de Mano (2711)": "2711",
+    "🏗️ Materiales de Construcción (3010 / 3019)": "3010",
+    "⚡ Equipos y Suministros Eléctricos (3912)": "3912",
+    "🎨 Pinturas y Recubrimientos (3121)": "3121",
+    "🚰 Tuberías y Plomería (4014)": "4014",
+    "💡 Iluminación y Luminarias (3911)": "3911",
+    "💻 Tecnología, Software y Comunicaciones (4321/4323)": "4321",
+    "🏥 Salud y Equipos Médicos (4200/5100)": "4200",
+    "🚗 Vehículos y Maquinaria (2510/7818)": "2510",
+    "🛡️ Vigilancia y Seguridad (9212)": "9212"
+}
 
-# 2. Periodo / Año
+# Sidebar
+st.sidebar.header("⚙️ Filtros del Radar")
+
+# 1. Ventana de Tiempo
 periodo = st.sidebar.selectbox(
-    "📅 Periodo de Publicación:",
+    "📅 Ventana de Tiempo (Fecha de Publicación):",
     [
-        "Todos los registros recientes (Recomendado)",
-        "Año 2026",
-        "Año 2025",
+        "Todos los procesos recientes (Sin restricción)",
         "Últimos 30 Días",
-        "Últimos 90 Días"
+        "Últimos 60 Días",
+        "Últimos 90 Días",
+        "Año 2026 Completo"
     ]
 )
 
-# 3. Exigencia de RUP / Modalidad
+# 2. Exigencia de RUP / Modalidad
 filtro_rup = st.sidebar.selectbox(
-    "📜 Modalidad / Exigencia RUP:",
+    "📜 Exigencia de RUP / Modalidad:",
     [
         "Todas las Modalidades (Con y Sin RUP)",
         "⚡ Solo Sin RUP (Mínima Cuantía - Art. 2 Ley 1150/2007)",
         "Selección Abreviada de Menor Cuantía",
         "Licitación Pública",
-        "Concurso de Méritos",
-        "Contratación Directa"
+        "Concurso de Méritos"
     ]
 )
 
-# 4. Sector
-sector = st.sidebar.selectbox(
-    "🏢 Sector Económico:",
-    [
-        "🌐 Todos los Sectores",
-        "🛠️ Ferretería, Herramientas, Eléctricos y Pinturas",
-        "💻 Tecnología, Software y Comunicaciones",
-        "🏥 Salud, Medicamentos y Equipos Médicos",
-        "🍎 Alimentos, Catering, Aseo y Cafetería",
-        "🚗 Vehículos, Maquinaria y Repuestos",
-        "🛡️ Vigilancia y Seguridad",
-        "🏗️ Obra Civil e Infraestructura"
-    ]
+# 3. Sector
+sector_sel = st.sidebar.selectbox(
+    "🏢 Sector / Categoría UNSPSC:",
+    options=list(CATEGORIAS_UNSPSC.keys())
 )
 
-# 5. Buscador Libre
-palabra_clave = st.sidebar.text_input("🔎 Palabra clave en el objeto/nombre:", "", placeholder="Ej. ferretería, tubería, insumos...")
+# 4. Buscador libre
+palabra_clave = st.sidebar.text_input("🔎 Palabra clave en el Objeto:", "", placeholder="Ej: suministro, herramientas, mantenimiento...")
 
-# ---------------------------------------------------------
-# DESCARGA DE DATOS DESDE LA API SODA (JSON)
-# ---------------------------------------------------------
+# 5. Cantidad de registros a descargar
+limite = st.sidebar.slider("📊 Cantidad de registros a descargar del SECOP II:", 1000, 5000, 3000, 500)
+
 @st.cache_data(ttl=300)
-def descargar_datos_secop_json(max_records):
+def cargar_datos_secop_json(max_rows):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
-    
-    select_fields = (
-        "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,"
-        "codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,"
-        "modalidad_de_contratacion,tipo_de_contrato,precio_base,estado_resumen,"
-        "fecha_de_publicacion,fecha_de_recepcion_de,urlproceso"
-    )
+    select_cols = "entidad,departamento_entidad,ciudad_entidad,referencia_del_proceso,codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,modalidad_de_contratacion,precio_base,estado_resumen,fecha_de_publicacion,fecha_de_recepcion_de,urlproceso"
     
     params = {
-        "$select": select_fields,
-        "$limit": str(max_records),
+        "$select": select_cols,
+        "$limit": str(max_rows),
         "$order": "fecha_de_publicacion DESC"
     }
     
@@ -90,149 +94,135 @@ def descargar_datos_secop_json(max_records):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
     }
     
-    response = requests.get(base_url, params=params, headers=headers, timeout=25)
-    response.raise_for_status()
-    data_json = response.json()
+    url = f"{base_url}?{urllib.parse.urlencode(params)}"
+    resp = requests.get(url, headers=headers, timeout=20)
+    resp.raise_for_status()
     
-    records = []
-    for item in data_json:
-        url_obj = item.get('urlproceso', '')
-        if isinstance(url_obj, dict):
-            url_str = url_obj.get('url', '')
-        else:
-            url_str = str(url_obj or '')
+    data = resp.json()
+    df = pd.DataFrame(data)
+    
+    if not df.empty:
+        if 'precio_base' in df.columns:
+            df['precio_base'] = pd.to_numeric(df['precio_base'], errors='coerce').fillna(0)
             
-        precio = float(item.get('precio_base', 0) or 0)
-        
-        records.append({
-            'entidad': item.get('entidad', 'N/A'),
-            'departamento_entidad': item.get('departamento_entidad', 'N/A'),
-            'ciudad_entidad': item.get('ciudad_entidad', 'N/A'),
-            'referencia_del_proceso': item.get('referencia_del_proceso', 'N/A'),
-            'codigo_principal_de_categoria': item.get('codigo_principal_de_categoria', 'N/A'),
-            'nombre_del_procedimiento': item.get('nombre_del_procedimiento', ''),
-            'descripci_n_del_procedimiento': item.get('descripci_n_del_procedimiento', ''),
-            'modalidad_de_contratacion': item.get('modalidad_de_contratacion', 'N/A'),
-            'precio_base': precio,
-            'estado_resumen': item.get('estado_resumen', 'N/A'),
-            'fecha_de_publicacion': str(item.get('fecha_de_publicacion', ''))[:10],
-            'fecha_de_recepcion_de': str(item.get('fecha_de_recepcion_de', ''))[:10],
-            'urlproceso': url_str
-        })
-        
-    df = pd.DataFrame(records)
-    if 'fecha_de_publicacion' in df.columns:
-        df['fecha_dt'] = pd.to_datetime(df['fecha_de_publicacion'], errors='coerce')
+        if 'fecha_de_publicacion' in df.columns:
+            # Parse dates safely and remove timezone for clean comparison
+            df['fecha_dt'] = pd.to_datetime(df['fecha_de_publicacion'], errors='coerce', format='mixed')
+            df['fecha_dt'] = df['fecha_dt'].dt.tz_localize(None)
+            
     return df
 
-with st.spinner("🚀 Conectando en vivo con el servidor del SECOP II (datos.gov.co)..."):
+with st.spinner("🚀 Conectando directamente con la API oficial del SECOP II..."):
     try:
-        raw_df = descargar_datos_secop_json(limite)
-        st.success(f"¡Conexión exitosa! Se obtuvieron **{len(raw_df):,}** procesos recientes directamente de la base oficial del SECOP II.")
+        raw_df = cargar_datos_secop_json(limite)
     except Exception as e:
-        st.error(f"Error de conexión con la API de Datos Abiertos: {e}")
+        st.error(f"Error al conectar con la API de Datos Abiertos: {e}")
         raw_df = pd.DataFrame()
 
-# ---------------------------------------------------------
-# FILTRADO DINÁMICO EN MEMORIA (PANDAS)
-# ---------------------------------------------------------
-df = raw_df.copy()
+if not raw_df.empty:
+    st.markdown(f'<div class="badge-info">📊 <b>Base cargada exitosamente:</b> {len(raw_df):,} procesos vigentes y recientes descargados directamente del SECOP II.</div>', unsafe_allow_html=True)
+    
+    df = raw_df.copy()
+    
+    # ---------------------------------------------------------
+    # APLICACIÓN DE FILTROS EN MEMORIA (PANDAS)
+    # ---------------------------------------------------------
+    
+    # A. Filtro de Fecha (calculado sobre la fecha máxima encontrada en los datos)
+    if 'fecha_dt' in df.columns and df['fecha_dt'].notna().any():
+        max_fecha_datos = df['fecha_dt'].max()
+        
+        if "30 Días" in periodo:
+            corte = max_fecha_datos - pd.Timedelta(days=30)
+            df = df[df['fecha_dt'] >= corte]
+        elif "60 Días" in periodo:
+            corte = max_fecha_datos - pd.Timedelta(days=60)
+            df = df[df['fecha_dt'] >= corte]
+        elif "90 Días" in periodo:
+            corte = max_fecha_datos - pd.Timedelta(days=90)
+            df = df[df['fecha_dt'] >= corte]
+        elif "Año 2026" in periodo:
+            df = df[df['fecha_dt'] >= pd.Timestamp('2026-01-01')]
 
-if not df.empty:
-    # A. Filtro por Periodo
-    if "Año 2026" in periodo and 'fecha_dt' in df.columns:
-        df = df[df['fecha_dt'].dt.year == 2026]
-    elif "Año 2025" in periodo and 'fecha_dt' in df.columns:
-        df = df[df['fecha_dt'].dt.year == 2025]
-    elif "Últimos 30 Días" in periodo and 'fecha_dt' in df.columns:
-        hace_30 = pd.Timestamp.now() - pd.Timedelta(days=30)
-        df = df[df['fecha_dt'] >= hace_30]
-    elif "Últimos 90 Días" in periodo and 'fecha_dt' in df.columns:
-        hace_90 = pd.Timestamp.now() - pd.Timedelta(days=90)
-        df = df[df['fecha_dt'] >= hace_90]
+    # B. Filtro de RUP / Modalidad
+    if "Solo Sin RUP" in filtro_rup and 'modalidad_de_contratacion' in df.columns:
+        df = df[df['modalidad_de_contratacion'].astype(str).str.lower().str.contains('mínima cuantía|minima cuantia', na=False)]
+    elif "Selección Abreviada" in filtro_rup and 'modalidad_de_contratacion' in df.columns:
+        df = df[df['modalidad_de_contratacion'].astype(str).str.lower().str.contains('selección abreviada|seleccion abreviada', na=False)]
+    elif "Licitación Pública" in filtro_rup and 'modalidad_de_contratacion' in df.columns:
+        df = df[df['modalidad_de_contratacion'].astype(str).str.lower().str.contains('licitación pública|licitacion publica', na=False)]
+    elif "Concurso de Méritos" in filtro_rup and 'modalidad_de_contratacion' in df.columns:
+        df = df[df['modalidad_de_contratacion'].astype(str).str.lower().str.contains('concurso de méritos|concurso de meritos', na=False)]
 
-    # B. Filtro por Modalidad / RUP
-    if "Solo Sin RUP" in filtro_rup:
-        df = df[df['modalidad_de_contratacion'].str.lower().str.contains('mínima cuantía|minima cuantia', na=False)]
-    elif "Selección Abreviada" in filtro_rup:
-        df = df[df['modalidad_de_contratacion'].str.lower().str.contains('selección abreviada|seleccion abreviada', na=False)]
-    elif "Licitación Pública" in filtro_rup:
-        df = df[df['modalidad_de_contratacion'].str.lower().str.contains('licitación pública|licitacion publica', na=False)]
-    elif "Concurso de Méritos" in filtro_rup:
-        df = df[df['modalidad_de_contratacion'].str.lower().str.contains('concurso de méritos|concurso de meritos', na=False)]
-    elif "Contratación Directa" in filtro_rup:
-        df = df[df['modalidad_de_contratacion'].str.lower().str.contains('directa', na=False)]
+    # C. Filtro de Sector UNSPSC
+    cod_cat = CATEGORIAS_UNSPSC[sector_sel]
+    if cod_cat != "TODOS" and 'codigo_principal_de_categoria' in df.columns:
+        df = df[df['codigo_principal_de_categoria'].astype(str).str.contains(cod_cat, na=False)]
 
-    # C. Filtro por Sector UNSPSC
-    prefixes = []
-    if "Ferretería" in sector:
-        prefixes = ['3116', '2711', '3010', '3019', '3912', '3121', '4014', '3911', '7210']
-    elif "Tecnología" in sector:
-        prefixes = ['4321', '4323', '8111']
-    elif "Salud" in sector:
-        prefixes = ['4200', '5100']
-    elif "Alimentos" in sector:
-        prefixes = ['5000', '4713']
-    elif "Vehículos" in sector:
-        prefixes = ['2510', '7818']
-    elif "Vigilancia" in sector:
-        prefixes = ['9212', '7611']
-    elif "Obra Civil" in sector:
-        prefixes = ['7214', '7212']
-
-    if prefixes and 'codigo_principal_de_categoria' in df.columns:
-        pattern = '^(' + '|'.join(prefixes) + ')'
-        df = df[df['codigo_principal_de_categoria'].astype(str).str.contains(pattern, na=False, regex=True)]
-
-    # D. Palabra clave
+    # D. Filtro de Palabra Clave
     if palabra_clave.strip():
         pk = palabra_clave.lower().strip()
-        cond_nom = df['nombre_del_procedimiento'].str.lower().str.contains(pk, na=False)
-        cond_desc = df['descripci_n_del_procedimiento'].str.lower().str.contains(pk, na=False)
+        cond_nom = df['nombre_del_procedimiento'].astype(str).str.lower().str.contains(pk, na=False)
+        cond_desc = df['descripci_n_del_procedimiento'].astype(str).str.lower().str.contains(pk, na=False)
         df = df[cond_nom | cond_desc]
 
     # ---------------------------------------------------------
-    # MOSTRAR RESULTADOS Y MÉTRICAS
+    # MOSTRAR RESULTADOS
     # ---------------------------------------------------------
+    
     if not df.empty:
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Oportunidades Coincidentes", f"{len(df):,}")
+            st.metric("Oportunidades Filtradas", f"{len(df):,}")
         with col2:
             st.metric("Bolsa Total Disponible ($)", f"${df['precio_base'].sum():,.0f} COP")
         with col3:
-            top_dep = df['departamento_entidad'].value_counts().index[0] if not df.empty else "N/A"
-            st.metric("Departamento Principal", f"{top_dep}")
+            dep_top = df['departamento_entidad'].value_counts().index[0] if ('departamento_entidad' in df.columns and not df.empty) else "N/A"
+            st.metric("Dep. con Más Procesos", f"{dep_top}")
 
         st.markdown("---")
-        st.subheader("📋 Licitaciones y Oportunidades Encontradas")
+        
+        # Extraer URL limpia si viene en formato dict/json
+        def extraer_url(val):
+            if isinstance(val, dict):
+                return val.get('url', '')
+            val_str = str(val)
+            if 'http' in val_str:
+                return val_str
+            return ''
 
-        display_df = df.drop(columns=['fecha_dt'], errors='ignore')
+        data_display = df.copy()
+        if 'urlproceso' in data_display.columns:
+            data_display['url_clean'] = data_display['urlproceso'].apply(extraer_url)
+        else:
+            data_display['url_clean'] = ''
+
+        cols_finales = [c for c in ['referencia_del_proceso', 'entidad', 'departamento_entidad', 'modalidad_de_contratacion', 'nombre_del_procedimiento', 'precio_base', 'fecha_de_publicacion', 'fecha_de_recepcion_de', 'url_clean'] if c in data_display.columns]
 
         st.dataframe(
-            display_df,
+            data_display[cols_finales],
             column_config={
-                "urlproceso": st.column_config.LinkColumn("Enlace SECOP II", display_text="Ver Pliegos 🔗"),
-                "precio_base": st.column_config.NumberColumn("Presupuesto (COP)", format="$%'.0f"),
-                "fecha_de_publicacion": "Fecha Publicación",
-                "fecha_de_recepcion_de": "Cierre Ofertas",
-                "nombre_del_procedimiento": "Objeto del Proceso",
+                "url_clean": st.column_config.LinkColumn("Enlace SECOP II", display_text="Ver Pliegos 🔗"),
+                "precio_base": st.column_config.NumberColumn("Presupuesto ($ COP)", format="$%'.0f"),
+                "referencia_del_proceso": "Proceso",
                 "entidad": "Entidad Compradora",
-                "modalidad_de_contratacion": "Modalidad",
                 "departamento_entidad": "Departamento",
-                "referencia_del_proceso": "Proceso"
+                "modalidad_de_contratacion": "Modalidad",
+                "nombre_del_procedimiento": "Objeto del Contrato",
+                "fecha_de_publicacion": "Fecha Publicación",
+                "fecha_de_recepcion_de": "Fecha Cierre"
             },
             use_container_width=True,
             hide_index=True
         )
 
-        csv_bytes = display_df.to_csv(index=False).encode('utf-8-sig')
+        csv_data = data_display.to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📥 Descargar Reporte en CSV / Excel",
-            data=csv_bytes,
-            file_name=f"radar_secop_{datetime.now().strftime('%Y%m%d')}.csv",
+            label="📥 Descargar Reporte Filtrado en CSV / Excel",
+            data=csv_data,
+            file_name=f"Radar_Licitaciones_VLAO_{periodo.replace(' ', '_')}.csv",
             mime="text/csv"
         )
     else:
-        st.warning(f"⚠️ De los {len(raw_df):,} procesos descargados del SECOP II, ninguno coincidió exactamente con los filtros seleccionados.")
-        st.info("💡 **Sugerencia:** Selecciona *'Todos los registros recientes'* en el periodo o cambia a *'Todos los Sectores'* en el menú lateral.")
+        st.warning("⚠️ No se encontraron procesos que coincidan con la combinación exacta de filtros seleccionada.")
+        st.info("💡 **Sugerencia:** Prueba cambiando 'Ventana de Tiempo' a *'Todos los procesos recientes'* o borra la palabra clave para ampliar los resultados.")
