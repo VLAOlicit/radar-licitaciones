@@ -184,10 +184,10 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="CO
         condiciones.append("(lower(modalidad_de_contratacion) like '%concurso%')")
 
     params = {
-        "": select_cols,
-        "": " AND ".join(condiciones),
-        "": "fecha_de_publicacion_del DESC",
-        "": str(limite)
+        "$select": select_cols,
+        "$where": " AND ".join(condiciones),
+        "$order": "fecha_de_publicacion_del DESC",
+        "$limit": str(limite)
     }
     
     headers = {
@@ -202,10 +202,10 @@ def descargar_base_secop_vlao_60dias(sector_codigo="TODOS", modalidad_codigo="CO
     except Exception:
         conds_fb = [f"fecha_de_publicacion_del >= '{fecha_hace_60_dias}'"]
         params_fb = {
-            "": select_cols,
-            "": " AND ".join(conds_fb),
-            "": "fecha_de_publicacion_del DESC",
-            "": str(limite)
+            "$select": select_cols,
+            "$where": " AND ".join(conds_fb),
+            "$order": "fecha_de_publicacion_del DESC",
+            "$limit": str(limite)
         }
         url_fb = f"{base_url}?{urllib.parse.urlencode(params_fb)}"
         resp = requests.get(url_fb, headers=headers, timeout=35)
