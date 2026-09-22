@@ -8,7 +8,7 @@ import requests
 import streamlit as st
 
 # ==============================================================================
-# CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO v2.0
+# CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO
 # ==============================================================================
 st.set_page_config(
     page_title="BID WIN VLAO - Oportunidades SECOP II 2026",
@@ -60,8 +60,8 @@ st.markdown("""
     .card-badge {
         background-color: #EFF6FF;
         color: #1D4ED8;
-        padding: 6px 14px;
-        border-radius: 16px;
+        padding: 6px 12px;
+        border-radius: 14px;
         font-size: 0.92rem;
         font-weight: 700;
     }
@@ -70,24 +70,23 @@ st.markdown("""
         color: #334155;
         padding: 3px 8px;
         border-radius: 6px;
-        font-size: 0.85rem;
         font-weight: 600;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 🎨 1. IDENTIDAD VISUAL Y ENCABEZADO
+# Encabezado Oficial
 st.markdown('<div class="brand-title">🎯 BID WIN VLAO</div>', unsafe_allow_html=True)
 st.markdown('<div class="brand-slogan">"Te acerca a tu próximo negocio con el Estado"</div>', unsafe_allow_html=True)
 st.markdown('<div class="brand-line"><b>Línea de Negocio: VLAO INGENIERÍA S.A.S.</b> (Mantenimiento, Obras Civiles, Cubiertas, Instalaciones Eléctricas, Iluminación, Ferretería, Plomería e Interventoría)</div>', unsafe_allow_html=True)
 st.divider()
 
 # ==============================================================================
-# DICCIONARIOS Y CONFIGURACIONES GENERALES (SIN FILTROS PREVIOS OBLIGATORIOS)
+# DICCIONARIOS Y LISTAS DE SELECCIÓN PARAMETRIZABLES
 # ==============================================================================
-SECTORES_UNSPSC_OPCIONES = {
+SECTORES_UNSPSC = {
     "🌐 Todos los Sectores de la Economía (Sin Filtro Previo)": "TODOS",
-    "🏢 Portafolio Combinado VLAO (Obras, Eléctricos, Pinturas, Tuberías, Consultoría, Ferretería)": "72|39|31|30|40|81|80|27|25",
+    "💼 Portafolio Combinado VLAO INGENIERÍA (3116, 7210, 3912, 8110, etc.)": "VLAO_COMBINADO",
     "🛠️ 3116 / 3010 - Ferretería, Herrajes y Materiales de Construcción": "3116|3010",
     "🏗️ 7210 / 7212 / 7214 / 7215 - Obras Civiles, Edificaciones y Mantenimiento": "7210|7212|7214|7215",
     "⚡ 3912 / 3911 / 2612 - Equipos Eléctricos, Iluminación y Redes": "3912|3911|2612",
@@ -97,12 +96,25 @@ SECTORES_UNSPSC_OPCIONES = {
     "🔧 2711 / 2510 - Herramientas de Mano y Maquinaria": "2711|2510"
 }
 
+SECTORES_VLAO_SEGMENTOS = ['72', '39', '31', '30', '40', '81', '80', '27', '25']
+
 DEPARTAMENTOS_COLOMBIA = [
-    "TODOS", "Amazonas", "Antioquia", "Arauca", "Atlántico", "Bogotá D.C.", "Bolívar",
+    "Amazonas", "Antioquia", "Arauca", "Atlántico", "Bogotá D.C.", "Bolívar",
     "Boyacá", "Caldas", "Caquetá", "Casanare", "Cauca", "Cesar", "Chocó", "Córdoba",
     "Cundinamarca", "Guainía", "Guaviare", "Huila", "La Guajira", "Magdalena", "Meta",
     "Nariño", "Norte de Santander", "Putumayo", "Quindío", "Risaralda", "San Andrés",
     "Santander", "Sucre", "Tolima", "Valle del Cauca", "Vaupés", "Vichada"
+]
+
+MUNICIPIOS_PRINCIPALES = [
+    "Bogotá D.C.", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga",
+    "Cúcuta", "Pereira", "Santa Marta", "Ibagué", "Pasto", "Manizales", "Neiva",
+    "Villavicencio", "Armenia", "Popayán", "Valledupar", "Montería", "Sincelejo",
+    "Tunja", "Florencia", "Yopal", "Quibdó", "Arauca", "Mocoa", "San José del Guaviare",
+    "Puerto Carreño", "Mitú", "Inírida", "Leticia", "San Andrés", "Soacha", "Bello",
+    "Envigado", "Soledad", "Floridablanca", "Girón", "Piedecuesta", "Palmira", "Buenaventura",
+    "Tuluá", "Cartago", "Sogamoso", "Duitama", "Chía", "Zipaquirá", "Facatativá", "Fusagasugá",
+    "Girardot", "Espinal", "Pitalito", "Garzón", "Aguachica", "Ocaña", "Tumaco", "Ipiales"
 ]
 
 MODALIDADES_LISTA = [
@@ -198,18 +210,12 @@ def parsear_fecha_secop(val):
     return pd.NaT, val_str[:10] if len(val_str) >= 10 else val_str
 
 # ==============================================================================
-# CONEXIÓN Y DESCARGA A SODA API (DATOS.GOV.CO - CONSULTA ABIERTA)
+# CONEXIÓN Y DESCARGA A SODA API (DATOS.GOV.CO - STRICT 2026)
 # ==============================================================================
 @st.cache_data(ttl=300)
-def descargar_secop_2026_abierto(dias_ventana=365, sector_codigo="TODOS", modalidad_sel="Todas las Modalidades", limite=5000):
-    """
-    Consulta directa a la API SODA del SECOP II en Datos Abiertos.
-    NO APLICA FILTROS PREVIOS OBLIGATORIOS por VLAO. Si sector_codigo es 'TODOS',
-    recupera la totalidad de la muestra nacional del periodo seleccionado.
-    """
+def descargar_secop_2026(dias_ventana=365, sector_codigo="TODOS", modalidad_sel="Todas las Modalidades", limite=5000):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     
-    # Estricto Año 2026
     fecha_inicio_2026 = "2026-01-01T00:00:00"
     if dias_ventana != 365:
         f_calculada = (datetime.now() - timedelta(days=dias_ventana)).strftime("%Y-%m-%dT00:00:00")
@@ -225,13 +231,16 @@ def descargar_secop_2026_abierto(dias_ventana=365, sector_codigo="TODOS", modali
 
     condiciones = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
 
-    # UNSPSC Filter: Solo se agrega si el usuario eligió un sector específico o portafolio en la Fase 1
-    if sector_codigo != "TODOS":
+    # UNSPSC Filter sólo si se especificó explícitamente
+    if sector_codigo == "VLAO_COMBINADO":
+        sub_c = [f"codigo_principal_de_categoria like '%{s}%'" for s in SECTORES_VLAO_SEGMENTOS]
+        condiciones.append(f"({' OR '.join(sub_c)})")
+    elif sector_codigo != "TODOS":
         cods = sector_codigo.split('|')
         sub_c = [f"codigo_principal_de_categoria like '%{c}%'" for c in cods]
         condiciones.append(f"({' OR '.join(sub_c)})")
 
-    # Modalidad Filter: Solo si se especifica
+    # Modalidad Filter
     if "Mínima" in modalidad_sel:
         condiciones.append("(lower(modalidad_de_contratacion) like '%minima%' or lower(modalidad_de_contratacion) like '%mínima%')")
     elif "Abreviada" in modalidad_sel:
@@ -242,8 +251,6 @@ def descargar_secop_2026_abierto(dias_ventana=365, sector_codigo="TODOS", modali
         condiciones.append("lower(modalidad_de_contratacion) like '%concurso%'")
     elif "Directa" in modalidad_sel:
         condiciones.append("lower(modalidad_de_contratacion) like '%directa%'")
-    elif "Especial" in modalidad_sel:
-        condiciones.append("(lower(modalidad_de_contratacion) like '%regimen%' or lower(modalidad_de_contratacion) like '%régimen%')")
 
     params = {
         "$select": select_cols,
@@ -262,7 +269,7 @@ def descargar_secop_2026_abierto(dias_ventana=365, sector_codigo="TODOS", modali
         resp.raise_for_status()
         data = resp.json()
     except Exception:
-        # Fallback de seguridad sin filtros de sub-categorías
+        # Fallback de seguridad abierto
         conds_fb = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
         params_fb = {
             "$select": select_cols,
@@ -278,13 +285,11 @@ def descargar_secop_2026_abierto(dias_ventana=365, sector_codigo="TODOS", modali
     df = pd.DataFrame(data)
 
     if not df.empty:
-        # Clean URLs
         if 'urlproceso' in df.columns:
             df['urlproceso'] = df['urlproceso'].apply(limpiar_url_secop)
         else:
             df['urlproceso'] = ""
 
-        # Precios
         if 'precio_base' in df.columns:
             df['precio_num'] = pd.to_numeric(df['precio_base'], errors='coerce').fillna(0)
             df['precio_formateado'] = df['precio_num'].apply(formato_pesos_cop)
@@ -292,7 +297,6 @@ def descargar_secop_2026_abierto(dias_ventana=365, sector_codigo="TODOS", modali
             df['precio_num'] = 0
             df['precio_formateado'] = "$ 0 COP"
 
-        # Fecha de Publicacion
         if 'fecha_de_publicacion_del' in df.columns:
             res_pub = [parsear_fecha_secop(v) for v in df['fecha_de_publicacion_del']]
             df['fecha_pub_dt'] = [r[0] for r in res_pub]
@@ -301,14 +305,12 @@ def descargar_secop_2026_abierto(dias_ventana=365, sector_codigo="TODOS", modali
             df['fecha_pub_dt'] = pd.NaT
             df['fecha_pub_clean'] = "Por definir"
 
-        # Fecha de Ultima Publicacion
         if 'fecha_de_ultima_publicaci' in df.columns:
             res_ult = [parsear_fecha_secop(v) for v in df['fecha_de_ultima_publicaci']]
             df['fecha_ult_pub_clean'] = [r[1] for r in res_ult]
         else:
             df['fecha_ult_pub_clean'] = df['fecha_pub_clean']
 
-        # Fecha Cierre Ofertas
         if 'fecha_de_recepcion_de' in df.columns:
             res_cie = [parsear_fecha_secop(v) for v in df['fecha_de_recepcion_de']]
             df['fecha_cierre_dt'] = [r[0] for r in res_cie]
@@ -338,8 +340,8 @@ def exportar_df_a_excel(df_filtrado):
         'estado_resumen': 'Estado',
         'fase': 'Fase',
         'fecha_pub_clean': 'Fecha Publicación',
-        'fecha_ult_pub_clean': 'Última Publicación',
-        'fecha_cierre_clean': 'Cierre Ofertas',
+        'fecha_ult_pub_clean': 'Fecha Última Publicación',
+        'fecha_cierre_clean': 'Fecha Cierre Ofertas',
         'urlproceso': 'Link SECOP II'
     }
     cols = [c for c in columnas_visibles.keys() if c in df_export.columns]
@@ -354,68 +356,63 @@ def exportar_df_a_excel(df_filtrado):
 # ⚙️ 2. FASE 1: PANTALLA DE INICIO / CONSOLA DE FILTROS DE ENTRADA
 # ==============================================================================
 st.markdown("### ⚙️ FASE 1: CONSOLA DE FILTROS DE ENTRADA (AÑO 2026)")
-st.caption("Configura los parámetros clave para consultar la totalidad de la base nacional o filtrar por criterios específicos.")
+st.caption("Configura los parámetros iniciales de ubicación, modalidad y sector para realizar la consulta en SECOP II.")
 
 with st.form(key="form_filtros_entrada"):
-    # Fila 1: Ubicación & Cliente Estatal
-    c1, c2, c3 = st.columns([1.2, 1.2, 1.6])
+    # Fila 1: Ubicación Geográfica (Departamento + Municipio Selección)
+    c1, c2 = st.columns(2)
     
     with c1:
         dptos_sel = st.multiselect(
             "📍 Ubicación Geográfica (Departamento):",
-            options=[d for d in DEPARTAMENTOS_COLOMBIA if d != "TODOS"],
+            options=DEPARTAMENTOS_COLOMBIA,
             default=[],
             help="Selecciona uno o varios departamentos."
         )
     with c2:
-        ciudad_query = st.text_input(
-            "🏙️ Ciudad / Municipio:",
-            value="",
-            placeholder="Ej: Bogotá, Neiva, Yopal, Medellín..."
-        )
-    with c3:
-        entidad_query = st.text_input(
-            "🏢 Cliente Estatal (Entidad Compradora):",
-            value="",
-            placeholder="Ej: SENA, ICBF, Registraduría, Ejército, Alcaldía, Hospital..."
+        ciudades_sel = st.multiselect(
+            "🏙️ Ciudad / Municipio (Selección Desplegable):",
+            options=MUNICIPIOS_PRINCIPALES,
+            default=[],
+            help="Selecciona una o varias ciudades/municipios principales."
         )
 
     # Fila 2: Definición Jurídica y Contractual
-    c4, c5, c6 = st.columns(3)
-    with c4:
+    c3, c4, c5 = st.columns(3)
+    with c3:
         modalidad_sel = st.selectbox(
             "📜 Modalidad de Contratación:",
             options=MODALIDADES_LISTA,
             index=0
         )
-    with c5:
+    with c4:
         tipo_contrato_sel = st.selectbox(
             "📑 Tipo de Contrato:",
             options=TIPOS_CONTRATO_LISTA,
             index=0
         )
-    with c6:
+    with c5:
         sector_sel = st.selectbox(
             "🏢 Sector / Categoría UNSPSC:",
-            options=list(SECTORES_UNSPSC_OPCIONES.keys()),
+            options=list(SECTORES_UNSPSC.keys()),
             index=0
         )
 
     # Fila 3: Estado, Fase & Ventana de Tiempos
-    c7, c8, c9 = st.columns(3)
-    with c7:
+    c6, c7, c8 = st.columns(3)
+    with c6:
         estado_sel = st.selectbox(
             "📌 Estado del Proceso (estado_resumen):",
             options=ESTADOS_RESUMEN_LISTA,
             index=0
         )
-    with c8:
+    with c7:
         fase_sel = st.selectbox(
             "📋 Etapa / Fase SECOP II (fase):",
             options=FASES_LISTA,
             index=0
         )
-    with c9:
+    with c8:
         ventana_tiempo = st.selectbox(
             "📅 Ventana de Tiempos (Strict 2026):",
             options=[
@@ -428,14 +425,14 @@ with st.form(key="form_filtros_entrada"):
         )
 
     # Fila 4: Criterios Adicionales & Anti-OPS
-    c10, c11 = st.columns([2, 1])
-    with c10:
+    c9, c10 = st.columns([2, 1])
+    with c9:
         palabra_clave = st.text_input(
             "🔎 Búsqueda Libre por Palabra Clave (en título u objeto):",
             value="",
             placeholder="Ej: cubierta, ferretería, mantenimiento, redes, impermeabilización..."
         )
-    with c11:
+    with c10:
         st.write("")
         st.write("")
         filtro_anti_ops = st.checkbox(
@@ -457,7 +454,6 @@ with st.form(key="form_filtros_entrada"):
 if btn_buscar or "ejecutado_busqueda" in st.session_state:
     st.session_state["ejecutado_busqueda"] = True
 
-    # Parse Ventana de tiempo
     m_dias = 365
     if "30" in ventana_tiempo:
         m_dias = 30
@@ -466,11 +462,11 @@ if btn_buscar or "ejecutado_busqueda" in st.session_state:
     elif "90" in ventana_tiempo:
         m_dias = 90
 
-    cod_sector = SECTORES_UNSPSC_OPCIONES[sector_sel]
+    cod_sector = SECTORES_UNSPSC[sector_sel]
 
-    with st.spinner("🚀 Ejecutando Modelo de Búsqueda de 2 Etapas en SECOP II (2026)..."):
+    with st.spinner("🚀 Cargando matriz de oportunidades de SECOP II (2026)..."):
         try:
-            df_raw = descargar_secop_2026_abierto(
+            df_raw = descargar_secop_2026(
                 dias_ventana=m_dias,
                 sector_codigo=cod_sector,
                 modalidad_sel=modalidad_sel,
@@ -483,36 +479,37 @@ if btn_buscar or "ejecutado_busqueda" in st.session_state:
     if not df_raw.empty:
         df = df_raw.copy()
 
-        # 1. Filtro por Departamento
+        # 1. Aplicación de Filtros de Fase 1 en Pandas
+        # A. Departamento
         if dptos_sel and 'departamento_entidad' in df.columns:
-            df = df[df['departamento_entidad'].isin(dptos_sel)]
+            def coincide_dpto(val):
+                val_n = normalizar_texto(val)
+                return any(normalizar_texto(d) in val_n for d in dptos_sel)
+            df = df[df['departamento_entidad'].apply(coincide_dpto)]
 
-        # 2. Filtro por Ciudad
-        if ciudad_query.strip() and 'ciudad_entidad' in df.columns:
-            q_m = normalizar_texto(ciudad_query)
-            df = df[df['ciudad_entidad'].apply(normalizar_texto).str.contains(q_m)]
+        # B. Ciudad / Municipio
+        if ciudades_sel and 'ciudad_entidad' in df.columns:
+            def coincide_ciudad(val):
+                val_n = normalizar_texto(val)
+                return any(normalizar_texto(c) in val_n for c in ciudades_sel)
+            df = df[df['ciudad_entidad'].apply(coincide_ciudad)]
 
-        # 3. Filtro por Entidad Compradora
-        if entidad_query.strip() and 'entidad' in df.columns:
-            q_e = normalizar_texto(entidad_query)
-            df = df[df['entidad'].apply(normalizar_texto).str.contains(q_e)]
-
-        # 4. Filtro por Tipo de Contrato
+        # C. Tipo de Contrato
         if tipo_contrato_sel != "Todos los Tipos" and 'tipo_de_contrato' in df.columns:
             q_t = normalizar_texto(tipo_contrato_sel.split(' ')[0])
             df = df[df['tipo_de_contrato'].apply(normalizar_texto).str.contains(q_t[:4])]
 
-        # 5. Filtro por Estado Resumen
+        # D. Estado Resumen
         if estado_sel != "Todos los Estados" and 'estado_resumen' in df.columns:
             q_est = normalizar_texto(estado_sel)
-            df = df[df['estado_resumen'].apply(normalizar_texto).str.contains(q_est[:5])]
+            df = df[df['estado_resumen'].apply(normalizar_texto).str.contains(q_est[:4])]
 
-        # 6. Filtro por Fase
+        # E. Fase
         if fase_sel != "Todas las Fases" and 'fase' in df.columns:
             q_fase = normalizar_texto(fase_sel)
             df = df[df['fase'].apply(normalizar_texto).str.contains(q_fase[:4])]
 
-        # 7. Filtro Anti-OPS
+        # F. Filtro Anti-OPS
         if filtro_anti_ops and 'modalidad_de_contratacion' in df.columns and 'nombre_del_procedimiento' in df.columns:
             palabras_ops = ['prestacion de servicios', 'honorarios', 'apoyo a la gestion', 'persona natural', 'ops']
             def es_ops(row):
@@ -524,7 +521,7 @@ if btn_buscar or "ejecutado_busqueda" in st.session_state:
                 return False
             df = df[~df.apply(es_ops, axis=1)]
 
-        # 8. Filtro por Palabra Clave Libre
+        # G. Palabra Clave Libre
         if palabra_clave.strip():
             kw_norm = normalizar_texto(palabra_clave)
             df = df[
@@ -533,10 +530,32 @@ if btn_buscar or "ejecutado_busqueda" in st.session_state:
             ]
 
         # ----------------------------------------------------------------------
+        # ENCABEZADO DE FASE 2 Y FILTRO LOCAL DE ENTIDAD COMPRADORA
+        # ----------------------------------------------------------------------
+        st.markdown("---")
+        st.markdown("### 📋 FASE 2: MATRIZ DE RESULTADOS Y OPORTUNIDADES DE NEGOCIO")
+        
+        # FILTRO DE ENTIDAD EN FASE 2 (REQUERIMIENTO DEL USUARIO)
+        st.markdown("#### 🔍 Filtro Específico por Entidad Compradora en Resultados")
+        c_ent1, c_ent2 = st.columns([2.5, 1])
+        with c_ent1:
+            entidad_query_fase2 = st.text_input(
+                "🏢 Buscar / Filtrar por Cliente Estatal (Entidad Compradora):",
+                value="",
+                placeholder="Ej: SENA, ICBF, Registraduría, Ejército, Alcaldía de Neiva, Gobernación, Hospital...",
+                key="input_entidad_fase2"
+            )
+        with c_ent2:
+            st.write("") # Spacer
+            st.caption("Filtra instantáneamente la entidad dentro de los resultados cargados.")
+
+        if entidad_query_fase2.strip() and 'entidad' in df.columns:
+            q_e2 = normalizar_texto(entidad_query_fase2)
+            df = df[df['entidad'].apply(normalizar_texto).str.contains(q_e2)]
+
+        # ----------------------------------------------------------------------
         # A. MÉTRICAS RÁPIDAS SUPERIORES
         # ----------------------------------------------------------------------
-        st.markdown("### 📊 FASE 2: MATRIZ DE RESULTADOS Y OPORTUNIDADES")
-        
         m1, m2, m3 = st.columns(3)
         with m1:
             st.metric(
