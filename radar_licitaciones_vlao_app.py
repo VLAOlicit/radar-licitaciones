@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import io
 import urllib.parse
 import unicodedata
+import re
 import pandas as pd
 import requests
 import streamlit as st
@@ -155,15 +156,103 @@ FASES_LISTA = [
 ]
 
 # ==============================================================================
-# FUNCIONES AUXILIARES: PARSEO, NORMALIZACIÓN Y FORMATOS
+# FUNCIONES AUXILIARES DE NORMALIZACIÓN Y COINCIDENCIA DE FILTROS
 # ==============================================================================
 def normalizar_texto(texto):
-    if not texto or pd.isna(texto):
+    if not texto or str(texto).lower() in ['none', 'nan', 'null', 'nat']:
         return ""
     texto_str = str(texto)
     nfkd = unicodedata.normalize('NFD', texto_str)
     sin_tildes = "".join([c for c in nfkd if unicodedata.category(c) != 'Mn'])
     return sin_tildes.lower().strip()
+
+def clean_alpha(texto):
+    norm = normalizar_texto(texto)
+    return re.sub(r'[^a-z0-9]', '', norm)
+
+def match_location(val_from_dataset, list_selected):
+    if not list_selected:
+        return True
+    val_clean = clean_alpha(val_from_dataset)
+    if not val_clean:
+        return False
+    for sel in list_selected:
+        sel_clean = clean_alpha(sel)
+        if not sel_clean:
+            continue
+        if "bogota" in sel_clean and "bogota" in val_clean:
+            return True
+        if sel_clean in val_clean or val_clean in sel_clean:
+            return True
+    return False
+
+def match_modalidad(val_mod, sel_mod):
+    if sel_mod == "Todas las Modalidades" or not sel_mod:
+        return True
+    val_n = normalizar_texto(val_mod)
+    sel_n = normalizar_texto(sel_mod)
+    if "minima" in sel_n:
+        return "minima" in val_n or "mínima" in val_n
+    if "abreviada" in sel_n:
+        return "abreviad" in val_n
+    if "licitacion" in sel_n:
+        return "licitac" in val_n
+    if "concurso" in sel_n:
+        return "concurso" in val_n
+    if "directa" in sel_n:
+        return "directa" in val_n
+    if "regimen" in sel_n:
+        return "regimen" in val_n or "régimen" in val_n
+    return True
+
+def match_tipo_contrato(val_tipo, sel_tipo):
+    if sel_tipo == "Todos los Tipos" or not sel_tipo:
+        return True
+    val_n = normalizar_texto(val_tipo)
+    sel_n = normalizar_texto(sel_tipo)
+    if "obra" in sel_n:
+        return "obra" in val_n
+    if "suministro" in sel_n:
+        return "suministr" in val_n
+    if "interventoria" in sel_n or "consultoria" in sel_n:
+        return "interventor" in val_n or "consultor" in val_n or "estudio" in val_n
+    if "compraventa" in sel_n:
+        return "compra" in val_n or "venta" in val_n
+    if "prestacion" in sel_n or "servicios" in sel_n:
+        return "servicio" in val_n or "prestac" in val_n
+    return True
+
+def match_estado(val_est, sel_est):
+    if sel_est == "Todos los Estados" or not sel_est:
+        return True
+    val_n = normalizar_texto(val_est)
+    sel_n = normalizar_texto(sel_est)
+    if "oferta" in sel_n or "convocatoria" in sel_n:
+        return "oferta" in val_n or "convocatoria" in val_n or "presentac" in val_n or "publicad" in val_n
+    if "borrador" in sel_n:
+        return "borrador" in val_n
+    if "publicado" in sel_n:
+        return "publicad" in val_n or "convocatoria" in val_n or "oferta" in val_n
+    if "evaluacion" in sel_n:
+        return "evalua" in val_n
+    if "adjudicado" in sel_n:
+        return "adjudic" in val_n
+    return True
+
+def match_fase(val_fase, sel_fase):
+    if sel_fase == "Todas las Fases" or not sel_fase:
+        return True
+    val_n = normalizar_texto(val_fase)
+    sel_n = normalizar_texto(sel_fase)
+    if "planeac" in sel_n:
+        return "planeac" in val_n
+    if "selecc" in sel_n:
+        return "selecc" in val_n
+    if "oferta" in sel_n or "presentac" in sel_n:
+        return "oferta" in val_n or "presentac" in val_n
+    if "borrador" in sel_n:
+        return "borrador" in val_n
+    return True
 
 def formato_pesos_cop(valor):
     try:
@@ -353,10 +442,10 @@ def exportar_df_a_excel(df_filtrado):
     return buffer.getvalue()
 
 # ==============================================================================
-# ⚙️ 2. FASE 1: PANTALLA DE INICIO / CONSOLA DE FILTROS DE ENTRADA
+# ⚙️ PANTALLA DE INICIO: CONSOLA DE FILTROS DE ENTRADA (TITULO SOLICITADO)
 # ==============================================================================
-st.markdown("### ⚙️ FASE 1: CONSOLA DE FILTROS DE ENTRADA (AÑO 2026)")
-st.caption("Configura los parámetros iniciales de ubicación, modalidad y sector para realizar la consulta en SECOP II.")
+st.markdown("### ⚙️ Selecciona y aplica los filtros para encontrar la oportunidad a tu medida")
+st.caption("Configura los parámetros clave de ubicación, modalidad y sector para realizar la consulta en SECOP II.")
 
 with st.form(key="form_filtros_entrada"):
     # Fila 1: Ubicación Geográfica (Departamento + Municipio Selección)
@@ -448,28 +537,47 @@ with st.form(key="form_filtros_entrada"):
         type="primary"
     )
 
-# ==============================================================================
-# 📋 3. FASE 2: PANTALLA DE RESULTADOS (MATRIZ DE OPORTUNIDADES)
-# ==============================================================================
-if btn_buscar or "ejecutado_busqueda" in st.session_state:
+# Persistencia de Filtros en Session State al enviar formulario
+if btn_buscar:
     st.session_state["ejecutado_busqueda"] = True
+    st.session_state["filtros_guardados"] = {
+        "dptos_sel": dptos_sel,
+        "ciudades_sel": ciudades_sel,
+        "modalidad_sel": modalidad_sel,
+        "tipo_contrato_sel": tipo_contrato_sel,
+        "sector_sel": sector_sel,
+        "estado_sel": estado_sel,
+        "fase_sel": fase_sel,
+        "ventana_tiempo": ventana_tiempo,
+        "palabra_clave": palabra_clave,
+        "filtro_anti_ops": filtro_anti_ops
+    }
+
+# ==============================================================================
+# 📋 MATRIZ DE RESULTADOS (TITULO SOLICITADO)
+# ==============================================================================
+if st.session_state.get("ejecutado_busqueda"):
+    cfg = st.session_state.get("filtros_guardados", {})
 
     m_dias = 365
-    if "30" in ventana_tiempo:
+    v_t = cfg.get("ventana_tiempo", "Todo el Año 2026")
+    if "30" in v_t:
         m_dias = 30
-    elif "60" in ventana_tiempo:
+    elif "60" in v_t:
         m_dias = 60
-    elif "90" in ventana_tiempo:
+    elif "90" in v_t:
         m_dias = 90
 
-    cod_sector = SECTORES_UNSPSC[sector_sel]
+    s_sel = cfg.get("sector_sel", "🌐 Todos los Sectores de la Economía (Sin Filtro Previo)")
+    cod_sector = SECTORES_UNSPSC.get(s_sel, "TODOS")
+    m_sel = cfg.get("modalidad_sel", "Todas las Modalidades")
 
-    with st.spinner("🚀 Cargando matriz de oportunidades de SECOP II (2026)..."):
+    with st.spinner("🚀 Cargando oportunidades de SECOP II (2026)..."):
         try:
             df_raw = descargar_secop_2026(
                 dias_ventana=m_dias,
                 sector_codigo=cod_sector,
-                modalidad_sel=modalidad_sel,
+                modalidad_sel=m_sel,
                 limite=5000
             )
         except Exception as e:
@@ -479,38 +587,41 @@ if btn_buscar or "ejecutado_busqueda" in st.session_state:
     if not df_raw.empty:
         df = df_raw.copy()
 
-        # 1. Aplicación de Filtros de Fase 1 en Pandas
-        # A. Departamento
-        if dptos_sel and 'departamento_entidad' in df.columns:
-            def coincide_dpto(val):
-                val_n = normalizar_texto(val)
-                return any(normalizar_texto(d) in val_n for d in dptos_sel)
-            df = df[df['departamento_entidad'].apply(coincide_dpto)]
+        # ----------------------------------------------------------------------
+        # APLICACIÓN DE FILTROS RIGUROSOS Y ROBUSTOS
+        # ----------------------------------------------------------------------
+        
+        # 1. Departamento
+        sel_dptos = cfg.get("dptos_sel", [])
+        if sel_dptos and 'departamento_entidad' in df.columns:
+            df = df[df['departamento_entidad'].apply(lambda val: match_location(val, sel_dptos))]
 
-        # B. Ciudad / Municipio
-        if ciudades_sel and 'ciudad_entidad' in df.columns:
-            def coincide_ciudad(val):
-                val_n = normalizar_texto(val)
-                return any(normalizar_texto(c) in val_n for c in ciudades_sel)
-            df = df[df['ciudad_entidad'].apply(coincide_ciudad)]
+        # 2. Ciudad / Municipio
+        sel_ciudades = cfg.get("ciudades_sel", [])
+        if sel_ciudades and 'ciudad_entidad' in df.columns:
+            df = df[df['ciudad_entidad'].apply(lambda val: match_location(val, sel_ciudades))]
 
-        # C. Tipo de Contrato
-        if tipo_contrato_sel != "Todos los Tipos" and 'tipo_de_contrato' in df.columns:
-            q_t = normalizar_texto(tipo_contrato_sel.split(' ')[0])
-            df = df[df['tipo_de_contrato'].apply(normalizar_texto).str.contains(q_t[:4])]
+        # 3. Tipo de Contrato
+        sel_tipo = cfg.get("tipo_contrato_sel", "Todos los Tipos")
+        if sel_tipo != "Todos los Tipos" and 'tipo_de_contrato' in df.columns:
+            df = df[df['tipo_de_contrato'].apply(lambda val: match_tipo_contrato(val, sel_tipo))]
 
-        # D. Estado Resumen
-        if estado_sel != "Todos los Estados" and 'estado_resumen' in df.columns:
-            q_est = normalizar_texto(estado_sel)
-            df = df[df['estado_resumen'].apply(normalizar_texto).str.contains(q_est[:4])]
+        # 4. Estado Resumen
+        sel_est = cfg.get("estado_sel", "Todos los Estados")
+        if sel_est != "Todos los Estados" and 'estado_resumen' in df.columns:
+            df = df[df['estado_resumen'].apply(lambda val: match_estado(val, sel_est))]
 
-        # E. Fase
-        if fase_sel != "Todas las Fases" and 'fase' in df.columns:
-            q_fase = normalizar_texto(fase_sel)
-            df = df[df['fase'].apply(normalizar_texto).str.contains(q_fase[:4])]
+        # 5. Fase
+        sel_fase = cfg.get("fase_sel", "Todas las Fases")
+        if sel_fase != "Todas las Fases" and 'fase' in df.columns:
+            df = df[df['fase'].apply(lambda val: match_fase(val, sel_fase))]
 
-        # F. Filtro Anti-OPS
-        if filtro_anti_ops and 'modalidad_de_contratacion' in df.columns and 'nombre_del_procedimiento' in df.columns:
+        # 6. Modalidad (Filtro en Pandas complementario)
+        if m_sel != "Todas las Modalidades" and 'modalidad_de_contratacion' in df.columns:
+            df = df[df['modalidad_de_contratacion'].apply(lambda val: match_modalidad(val, m_sel))]
+
+        # 7. Filtro Anti-OPS
+        if cfg.get("filtro_anti_ops") and 'modalidad_de_contratacion' in df.columns and 'nombre_del_procedimiento' in df.columns:
             palabras_ops = ['prestacion de servicios', 'honorarios', 'apoyo a la gestion', 'persona natural', 'ops']
             def es_ops(row):
                 mod = str(row.get('modalidad_de_contratacion', '')).lower()
@@ -521,21 +632,21 @@ if btn_buscar or "ejecutado_busqueda" in st.session_state:
                 return False
             df = df[~df.apply(es_ops, axis=1)]
 
-        # G. Palabra Clave Libre
-        if palabra_clave.strip():
-            kw_norm = normalizar_texto(palabra_clave)
+        # 8. Palabra Clave Libre
+        kw_p = cfg.get("palabra_clave", "").strip()
+        if kw_p:
+            kw_norm = normalizar_texto(kw_p)
             df = df[
                 df['nombre_del_procedimiento'].apply(normalizar_texto).str.contains(kw_norm) |
                 df['descripci_n_del_procedimiento'].apply(normalizar_texto).str.contains(kw_norm)
             ]
 
         # ----------------------------------------------------------------------
-        # ENCABEZADO DE FASE 2 Y FILTRO LOCAL DE ENTIDAD COMPRADORA
+        # ENCABEZADO DE SECCIÓN Y FILTRO LOCAL DE ENTIDAD COMPRADORA (SOLICITADO)
         # ----------------------------------------------------------------------
         st.markdown("---")
-        st.markdown("### 📋 FASE 2: MATRIZ DE RESULTADOS Y OPORTUNIDADES DE NEGOCIO")
+        st.markdown("### 📋 Oportunidades para tu selección")
         
-        # FILTRO DE ENTIDAD EN FASE 2 (REQUERIMIENTO DEL USUARIO)
         st.markdown("#### 🔍 Filtro Específico por Entidad Compradora en Resultados")
         c_ent1, c_ent2 = st.columns([2.5, 1])
         with c_ent1:
@@ -547,7 +658,7 @@ if btn_buscar or "ejecutado_busqueda" in st.session_state:
             )
         with c_ent2:
             st.write("") # Spacer
-            st.caption("Filtra instantáneamente la entidad dentro de los resultados cargados.")
+            st.caption("Filtra instantáneamente la entidad dentro de las oportunidades seleccionadas.")
 
         if entidad_query_fase2.strip() and 'entidad' in df.columns:
             q_e2 = normalizar_texto(entidad_query_fase2)
@@ -659,4 +770,4 @@ if btn_buscar or "ejecutado_busqueda" in st.session_state:
         )
 
     else:
-        st.warning("⚠️ No se encontraron oportunidades que coincidan con la combinación de filtros ingresada. Intenta ampliar los criterios o seleccionar 'Todas las Modalidades'.")
+        st.warning("⚠️ No se encontraron oportunidades que coincidan con la combinación de filtros seleccionada. Te sugerimos ampliar los criterios o reiniciar la selección.")
