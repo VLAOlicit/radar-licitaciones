@@ -156,10 +156,10 @@ FASES_LISTA = [
 ]
 
 # ==============================================================================
-# FUNCIONES AUXILIARES DE NORMALIZACIÓN Y COINCIDENCIA DE FILTROS
+# FUNCIONES AUXILIARES: PARSEO, NORMALIZACIÓN Y FORMATOS
 # ==============================================================================
 def normalizar_texto(texto):
-    if not texto or str(texto).lower() in ['none', 'nan', 'null', 'nat']:
+    if not texto or pd.isna(texto):
         return ""
     texto_str = str(texto)
     nfkd = unicodedata.normalize('NFD', texto_str)
@@ -169,6 +169,14 @@ def normalizar_texto(texto):
 def clean_alpha(texto):
     norm = normalizar_texto(texto)
     return re.sub(r'[^a-z0-9]', '', norm)
+
+def clean_for_soda_search(s):
+    nfkd = unicodedata.normalize('NFD', str(s))
+    sin_tildes = "".join([c for c in nfkd if unicodedata.category(c) != 'Mn'])
+    clean = sin_tildes.lower().replace('.', '').replace('-', '').strip()
+    if clean.endswith(' dc'):
+        clean = clean[:-3].strip()
+    return clean
 
 def match_location(val_from_dataset, list_selected):
     if not list_selected:
@@ -299,10 +307,20 @@ def parsear_fecha_secop(val):
     return pd.NaT, val_str[:10] if len(val_str) >= 10 else val_str
 
 # ==============================================================================
-# CONEXIÓN Y DESCARGA A SODA API (DATOS.GOV.CO - STRICT 2026)
+# CONEXIÓN Y DESCARGA A SODA API (DATOS.GOV.CO - STRICT 2026 - FULL SERVER FILTER)
 # ==============================================================================
 @st.cache_data(ttl=300)
-def descargar_secop_2026(dias_ventana=365, sector_codigo="TODOS", modalidad_sel="Todas las Modalidades", limite=5000):
+def descargar_secop_2026(
+    dias_ventana=365,
+    sector_codigo="TODOS",
+    modalidad_sel="Todas las Modalidades",
+    dptos_sel=None,
+    ciudades_sel=None,
+    tipo_contrato_sel="Todos los Tipos",
+    estado_sel="Todos los Estados",
+    fase_sel="Todas las Fases",
+    limite=5000
+):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     
     fecha_inicio_2026 = "2026-01-01T00:00:00"
@@ -320,7 +338,22 @@ def descargar_secop_2026(dias_ventana=365, sector_codigo="TODOS", modalidad_sel=
 
     condiciones = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
 
-    # UNSPSC Filter sólo si se especificó explícitamente
+    # 1. Filtro Departamento & Ciudad a nivel de Servidor (SODA $where)
+    loc_conds = []
+    if dptos_sel:
+        for d in dptos_sel:
+            d_clean = clean_for_soda_search(d)
+            if d_clean:
+                loc_conds.append(f"lower(departamento_entidad) like '%{d_clean}%'")
+    if ciudades_sel:
+        for c in ciudades_sel:
+            c_clean = clean_for_soda_search(c)
+            if c_clean:
+                loc_conds.append(f"lower(ciudad_entidad) like '%{c_clean}%'")
+    if loc_conds:
+        condiciones.append(f"({' OR '.join(loc_conds)})")
+
+    # 2. UNSPSC Filter
     if sector_codigo == "VLAO_COMBINADO":
         sub_c = [f"codigo_principal_de_categoria like '%{s}%'" for s in SECTORES_VLAO_SEGMENTOS]
         condiciones.append(f"({' OR '.join(sub_c)})")
@@ -329,7 +362,7 @@ def descargar_secop_2026(dias_ventana=365, sector_codigo="TODOS", modalidad_sel=
         sub_c = [f"codigo_principal_de_categoria like '%{c}%'" for c in cods]
         condiciones.append(f"({' OR '.join(sub_c)})")
 
-    # Modalidad Filter
+    # 3. Modalidad Filter
     if "Mínima" in modalidad_sel:
         condiciones.append("(lower(modalidad_de_contratacion) like '%minima%' or lower(modalidad_de_contratacion) like '%mínima%')")
     elif "Abreviada" in modalidad_sel:
@@ -340,6 +373,12 @@ def descargar_secop_2026(dias_ventana=365, sector_codigo="TODOS", modalidad_sel=
         condiciones.append("lower(modalidad_de_contratacion) like '%concurso%'")
     elif "Directa" in modalidad_sel:
         condiciones.append("lower(modalidad_de_contratacion) like '%directa%'")
+
+    # 4. Tipo Contrato Filter
+    if tipo_contrato_sel != "Todos los Tipos":
+        q_t = normalizar_texto(tipo_contrato_sel.split(' ')[0])
+        if q_t:
+            condiciones.append(f"lower(tipo_de_contrato) like '%{q_t[:4]}%'")
 
     params = {
         "$select": select_cols,
@@ -358,7 +397,7 @@ def descargar_secop_2026(dias_ventana=365, sector_codigo="TODOS", modalidad_sel=
         resp.raise_for_status()
         data = resp.json()
     except Exception:
-        # Fallback de seguridad abierto
+        # Fallback de seguridad
         conds_fb = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
         params_fb = {
             "$select": select_cols,
@@ -442,7 +481,7 @@ def exportar_df_a_excel(df_filtrado):
     return buffer.getvalue()
 
 # ==============================================================================
-# ⚙️ PANTALLA DE INICIO: CONSOLA DE FILTROS DE ENTRADA (TITULO SOLICITADO)
+# ⚙️ PANTALLA DE INICIO: CONSOLA DE FILTROS DE ENTRADA
 # ==============================================================================
 st.markdown("### ⚙️ Selecciona y aplica los filtros para encontrar la oportunidad a tu medida")
 st.caption("Configura los parámetros clave de ubicación, modalidad y sector para realizar la consulta en SECOP II.")
@@ -554,7 +593,7 @@ if btn_buscar:
     }
 
 # ==============================================================================
-# 📋 MATRIZ DE RESULTADOS (TITULO SOLICITADO)
+# 📋 MATRIZ DE RESULTADOS
 # ==============================================================================
 if st.session_state.get("ejecutado_busqueda"):
     cfg = st.session_state.get("filtros_guardados", {})
@@ -572,12 +611,23 @@ if st.session_state.get("ejecutado_busqueda"):
     cod_sector = SECTORES_UNSPSC.get(s_sel, "TODOS")
     m_sel = cfg.get("modalidad_sel", "Todas las Modalidades")
 
+    sel_dptos = cfg.get("dptos_sel", [])
+    sel_ciudades = cfg.get("ciudades_sel", [])
+    sel_tipo = cfg.get("tipo_contrato_sel", "Todos los Tipos")
+    sel_est = cfg.get("estado_sel", "Todos los Estados")
+    sel_fase = cfg.get("fase_sel", "Todas las Fases")
+
     with st.spinner("🚀 Cargando oportunidades de SECOP II (2026)..."):
         try:
             df_raw = descargar_secop_2026(
                 dias_ventana=m_dias,
                 sector_codigo=cod_sector,
                 modalidad_sel=m_sel,
+                dptos_sel=sel_dptos,
+                ciudades_sel=sel_ciudades,
+                tipo_contrato_sel=sel_tipo,
+                estado_sel=sel_est,
+                fase_sel=sel_fase,
                 limite=5000
             )
         except Exception as e:
@@ -588,31 +638,26 @@ if st.session_state.get("ejecutado_busqueda"):
         df = df_raw.copy()
 
         # ----------------------------------------------------------------------
-        # APLICACIÓN DE FILTROS RIGUROSOS Y ROBUSTOS
+        # APLICACIÓN DE FILTROS RIGUROSOS Y ROBUSTOS EN PANDAS
         # ----------------------------------------------------------------------
         
         # 1. Departamento
-        sel_dptos = cfg.get("dptos_sel", [])
         if sel_dptos and 'departamento_entidad' in df.columns:
             df = df[df['departamento_entidad'].apply(lambda val: match_location(val, sel_dptos))]
 
         # 2. Ciudad / Municipio
-        sel_ciudades = cfg.get("ciudades_sel", [])
         if sel_ciudades and 'ciudad_entidad' in df.columns:
             df = df[df['ciudad_entidad'].apply(lambda val: match_location(val, sel_ciudades))]
 
         # 3. Tipo de Contrato
-        sel_tipo = cfg.get("tipo_contrato_sel", "Todos los Tipos")
         if sel_tipo != "Todos los Tipos" and 'tipo_de_contrato' in df.columns:
             df = df[df['tipo_de_contrato'].apply(lambda val: match_tipo_contrato(val, sel_tipo))]
 
         # 4. Estado Resumen
-        sel_est = cfg.get("estado_sel", "Todos los Estados")
         if sel_est != "Todos los Estados" and 'estado_resumen' in df.columns:
             df = df[df['estado_resumen'].apply(lambda val: match_estado(val, sel_est))]
 
         # 5. Fase
-        sel_fase = cfg.get("fase_sel", "Todas las Fases")
         if sel_fase != "Todas las Fases" and 'fase' in df.columns:
             df = df[df['fase'].apply(lambda val: match_fase(val, sel_fase))]
 
@@ -642,7 +687,7 @@ if st.session_state.get("ejecutado_busqueda"):
             ]
 
         # ----------------------------------------------------------------------
-        # ENCABEZADO DE SECCIÓN Y FILTRO LOCAL DE ENTIDAD COMPRADORA (SOLICITADO)
+        # ENCABEZADO DE SECCIÓN Y FILTRO LOCAL DE ENTIDAD COMPRADORA
         # ----------------------------------------------------------------------
         st.markdown("---")
         st.markdown("### 📋 Oportunidades para tu selección")
@@ -770,4 +815,4 @@ if st.session_state.get("ejecutado_busqueda"):
         )
 
     else:
-        st.warning("⚠️ No se encontraron oportunidades que coincidan con la combinación de filtros seleccionada. Te sugerimos ampliar los criterios o reiniciar la selección.")
+        st.warning("⚠️ No se encontraron oportunidades que coincidan con la combinación de filtros ingresada. Intenta ampliar los criterios o seleccionar 'Todas las Modalidades'.")
