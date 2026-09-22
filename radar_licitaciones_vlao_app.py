@@ -10,7 +10,7 @@ import streamlit as st
 
 # ==============================================================================
 # CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO
-# ==============================================================================
+# ============================================================================= proposal
 st.set_page_config(
     page_title="BID WIN VLAO - Oportunidades SECOP II 2026",
     layout="wide",
@@ -155,8 +155,15 @@ FASES_LISTA = [
     "Borrador"
 ]
 
+VENTANAS_LISTA = [
+    "Últimos 30 días",
+    "Últimos 60 días",
+    "Últimos 90 días",
+    "Todo el Año 2026"
+]
+
 # ==============================================================================
-# FUNCIONES AUXILIARES: PARSEO, NORMALIZACIÓN Y FORMATOS
+# FUNCIONES AUXILIARES: NORMALIZACIÓN, FORMATOS Y LÓGICA DE FILTRADO
 # ==============================================================================
 def normalizar_texto(texto):
     if not texto or pd.isna(texto):
@@ -170,13 +177,31 @@ def clean_alpha(texto):
     norm = normalizar_texto(texto)
     return re.sub(r'[^a-z0-9]', '', norm)
 
-def clean_for_soda_search(s):
-    nfkd = unicodedata.normalize('NFD', str(s))
-    sin_tildes = "".join([c for c in nfkd if unicodedata.category(c) != 'Mn'])
-    clean = sin_tildes.lower().replace('.', '').replace('-', '').strip()
-    if clean.endswith(' dc'):
-        clean = clean[:-3].strip()
-    return clean
+def get_soda_location_conditions(field_name, sel_list):
+    """Genera cláusulas SoQL tolerantes a tildes y variaciones para la SODA API."""
+    conds = []
+    for val in sel_list:
+        if not val or val == 'TODOS':
+            continue
+        v_raw = str(val).lower().strip()
+        nfkd = unicodedata.normalize('NFD', str(val))
+        v_no_tilde = ''.join([c for c in nfkd if unicodedata.category(c) != 'Mn']).lower().strip()
+        
+        v_stem = re.sub(r'[^a-z0-9]', '', v_no_tilde)
+        if len(v_stem) > 5:
+            v_stem = v_stem[:5]
+            
+        sub_or = []
+        if v_raw:
+            sub_or.append(f"lower({field_name}) like '%{v_raw}%'")
+        if v_no_tilde and v_no_tilde != v_raw:
+            sub_or.append(f"lower({field_name}) like '%{v_no_tilde}%'")
+        if v_stem and len(v_stem) >= 4 and v_stem not in [v_raw, v_no_tilde]:
+            sub_or.append(f"lower({field_name}) like '%{v_stem}%'")
+            
+        if sub_or:
+            conds.append(f"({' OR '.join(sub_or)})")
+    return conds
 
 def match_location(val_from_dataset, list_selected):
     if not list_selected:
@@ -306,8 +331,14 @@ def parsear_fecha_secop(val):
         pass
     return pd.NaT, val_str[:10] if len(val_str) >= 10 else val_str
 
+def get_index_safe(lst, item):
+    try:
+        return lst.index(item)
+    except Exception:
+        return 0
+
 # ==============================================================================
-# CONEXIÓN Y DESCARGA A SODA API (DATOS.GOV.CO - STRICT 2026 - FULL SERVER FILTER)
+# CONEXIÓN Y DESCARGA A SODA API (DATOS.GOV.CO - STRICT 2026 - SERVER-SIDE QUERY)
 # ==============================================================================
 @st.cache_data(ttl=300)
 def descargar_secop_2026(
@@ -317,8 +348,6 @@ def descargar_secop_2026(
     dptos_sel=None,
     ciudades_sel=None,
     tipo_contrato_sel="Todos los Tipos",
-    estado_sel="Todos los Estados",
-    fase_sel="Todas las Fases",
     limite=5000
 ):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
@@ -338,18 +367,12 @@ def descargar_secop_2026(
 
     condiciones = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
 
-    # 1. Filtro Departamento & Ciudad a nivel de Servidor (SODA $where)
+    # 1. Filtro Departamento & Ciudad en Servidor con tolerancia a tildes
     loc_conds = []
     if dptos_sel:
-        for d in dptos_sel:
-            d_clean = clean_for_soda_search(d)
-            if d_clean:
-                loc_conds.append(f"lower(departamento_entidad) like '%{d_clean}%'")
+        loc_conds.extend(get_soda_location_conditions("departamento_entidad", dptos_sel))
     if ciudades_sel:
-        for c in ciudades_sel:
-            c_clean = clean_for_soda_search(c)
-            if c_clean:
-                loc_conds.append(f"lower(ciudad_entidad) like '%{c_clean}%'")
+        loc_conds.extend(get_soda_location_conditions("ciudad_entidad", ciudades_sel))
     if loc_conds:
         condiciones.append(f"({' OR '.join(loc_conds)})")
 
@@ -397,7 +420,7 @@ def descargar_secop_2026(
         resp.raise_for_status()
         data = resp.json()
     except Exception:
-        # Fallback de seguridad
+        # Fallback de seguridad abierto si SoQL es demasiado complejo
         conds_fb = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
         params_fb = {
             "$select": select_cols,
@@ -481,10 +504,13 @@ def exportar_df_a_excel(df_filtrado):
     return buffer.getvalue()
 
 # ==============================================================================
-# ⚙️ PANTALLA DE INICIO: CONSOLA DE FILTROS DE ENTRADA
+# ⚙️ CONSOLA DE FILTROS DE ENTRADA (MANTENIMIENTO DE ESTADO EN SESSION_STATE)
 # ==============================================================================
 st.markdown("### ⚙️ Selecciona y aplica los filtros para encontrar la oportunidad a tu medida")
 st.caption("Configura los parámetros clave de ubicación, modalidad y sector para realizar la consulta en SECOP II.")
+
+# Cargar session state previo para que los controles no se borren
+cfg_saved = st.session_state.get("filtros_guardados", {})
 
 with st.form(key="form_filtros_entrada"):
     # Fila 1: Ubicación Geográfica (Departamento + Municipio Selección)
@@ -494,62 +520,64 @@ with st.form(key="form_filtros_entrada"):
         dptos_sel = st.multiselect(
             "📍 Ubicación Geográfica (Departamento):",
             options=DEPARTAMENTOS_COLOMBIA,
-            default=[],
+            default=cfg_saved.get("dptos_sel", []),
             help="Selecciona uno o varios departamentos."
         )
     with c2:
         ciudades_sel = st.multiselect(
             "🏙️ Ciudad / Municipio (Selección Desplegable):",
             options=MUNICIPIOS_PRINCIPALES,
-            default=[],
+            default=cfg_saved.get("ciudades_sel", []),
             help="Selecciona una o varias ciudades/municipios principales."
         )
 
     # Fila 2: Definición Jurídica y Contractual
     c3, c4, c5 = st.columns(3)
     with c3:
+        idx_mod = get_index_safe(MODALIDADES_LISTA, cfg_saved.get("modalidad_sel", "Todas las Modalidades"))
         modalidad_sel = st.selectbox(
             "📜 Modalidad de Contratación:",
             options=MODALIDADES_LISTA,
-            index=0
+            index=idx_mod
         )
     with c4:
+        idx_tipo = get_index_safe(TIPOS_CONTRATO_LISTA, cfg_saved.get("tipo_contrato_sel", "Todos los Tipos"))
         tipo_contrato_sel = st.selectbox(
             "📑 Tipo de Contrato:",
             options=TIPOS_CONTRATO_LISTA,
-            index=0
+            index=idx_tipo
         )
     with c5:
+        sectores_keys = list(SECTORES_UNSPSC.keys())
+        idx_sec = get_index_safe(sectores_keys, cfg_saved.get("sector_sel", sectores_keys[0]))
         sector_sel = st.selectbox(
             "🏢 Sector / Categoría UNSPSC:",
-            options=list(SECTORES_UNSPSC.keys()),
-            index=0
+            options=sectores_keys,
+            index=idx_sec
         )
 
     # Fila 3: Estado, Fase & Ventana de Tiempos
     c6, c7, c8 = st.columns(3)
     with c6:
+        idx_est = get_index_safe(ESTADOS_RESUMEN_LISTA, cfg_saved.get("estado_sel", "Todos los Estados"))
         estado_sel = st.selectbox(
             "📌 Estado del Proceso (estado_resumen):",
             options=ESTADOS_RESUMEN_LISTA,
-            index=0
+            index=idx_est
         )
     with c7:
+        idx_fase = get_index_safe(FASES_LISTA, cfg_saved.get("fase_sel", "Todas las Fases"))
         fase_sel = st.selectbox(
             "📋 Etapa / Fase SECOP II (fase):",
             options=FASES_LISTA,
-            index=0
+            index=idx_fase
         )
     with c8:
+        idx_vent = get_index_safe(VENTANAS_LISTA, cfg_saved.get("ventana_tiempo", "Todo el Año 2026"))
         ventana_tiempo = st.selectbox(
             "📅 Ventana de Tiempos (Strict 2026):",
-            options=[
-                "Últimos 30 días",
-                "Últimos 60 días",
-                "Últimos 90 días",
-                "Todo el Año 2026"
-            ],
-            index=3
+            options=VENTANAS_LISTA,
+            index=idx_vent
         )
 
     # Fila 4: Criterios Adicionales & Anti-OPS
@@ -557,7 +585,7 @@ with st.form(key="form_filtros_entrada"):
     with c9:
         palabra_clave = st.text_input(
             "🔎 Búsqueda Libre por Palabra Clave (en título u objeto):",
-            value="",
+            value=cfg_saved.get("palabra_clave", ""),
             placeholder="Ej: cubierta, ferretería, mantenimiento, redes, impermeabilización..."
         )
     with c10:
@@ -565,7 +593,7 @@ with st.form(key="form_filtros_entrada"):
         st.write("")
         filtro_anti_ops = st.checkbox(
             "🛡️ Filtro Anti-OPS (Excluir Contratación Directa PN)",
-            value=False,
+            value=cfg_saved.get("filtro_anti_ops", False),
             help="Excluye servicios profesionales individuales de apoyo a la gestión cuando esté marcada."
         )
 
@@ -593,7 +621,7 @@ if btn_buscar:
     }
 
 # ==============================================================================
-# 📋 MATRIZ DE RESULTADOS
+# 📋 OPORTUNIDADES PARA TU SELECCIÓN (MATRIZ DE RESULTADOS)
 # ==============================================================================
 if st.session_state.get("ejecutado_busqueda"):
     cfg = st.session_state.get("filtros_guardados", {})
@@ -610,12 +638,9 @@ if st.session_state.get("ejecutado_busqueda"):
     s_sel = cfg.get("sector_sel", "🌐 Todos los Sectores de la Economía (Sin Filtro Previo)")
     cod_sector = SECTORES_UNSPSC.get(s_sel, "TODOS")
     m_sel = cfg.get("modalidad_sel", "Todas las Modalidades")
-
     sel_dptos = cfg.get("dptos_sel", [])
     sel_ciudades = cfg.get("ciudades_sel", [])
     sel_tipo = cfg.get("tipo_contrato_sel", "Todos los Tipos")
-    sel_est = cfg.get("estado_sel", "Todos los Estados")
-    sel_fase = cfg.get("fase_sel", "Todas las Fases")
 
     with st.spinner("🚀 Cargando oportunidades de SECOP II (2026)..."):
         try:
@@ -626,8 +651,6 @@ if st.session_state.get("ejecutado_busqueda"):
                 dptos_sel=sel_dptos,
                 ciudades_sel=sel_ciudades,
                 tipo_contrato_sel=sel_tipo,
-                estado_sel=sel_est,
-                fase_sel=sel_fase,
                 limite=5000
             )
         except Exception as e:
@@ -654,10 +677,12 @@ if st.session_state.get("ejecutado_busqueda"):
             df = df[df['tipo_de_contrato'].apply(lambda val: match_tipo_contrato(val, sel_tipo))]
 
         # 4. Estado Resumen
+        sel_est = cfg.get("estado_sel", "Todos los Estados")
         if sel_est != "Todos los Estados" and 'estado_resumen' in df.columns:
             df = df[df['estado_resumen'].apply(lambda val: match_estado(val, sel_est))]
 
         # 5. Fase
+        sel_fase = cfg.get("fase_sel", "Todas las Fases")
         if sel_fase != "Todas las Fases" and 'fase' in df.columns:
             df = df[df['fase'].apply(lambda val: match_fase(val, sel_fase))]
 
