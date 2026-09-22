@@ -767,8 +767,27 @@ if st.session_state.get("ejecutado_busqueda"):
         # VISUALIZACIÓN EN TARJETAS ESTRELLA (TOP OPORTUNIDADES)
         # ----------------------------------------------------------------------
         if not df.empty:
-            st.markdown("#### ⭐ Oportunidades Destacadas (Resumen Visual)")
-            df_cards = df.sort_values(by=['precio_num'], ascending=False).head(5)
+            c_head1, c_head2 = st.columns([2.5, 1.5])
+            with c_head1:
+                st.markdown("#### ⭐ Oportunidades Destacadas (Resumen Visual)")
+            with c_head2:
+                criterio_orden_cards = st.selectbox(
+                    "Ordenar tarjetas por:",
+                    options=[
+                        "⏱️ Cierre: Más lejana ➔ Más cercana",
+                        "⏱️ Cierre: Más cercana ➔ Más lejana",
+                        "💰 Mayor Presupuesto ($ COP)"
+                    ],
+                    index=0,
+                    key="select_orden_cards_v7"
+                )
+
+            if "Más lejana" in criterio_orden_cards:
+                df_cards = df.sort_values(by=['fecha_cierre_dt', 'precio_num'], ascending=[False, False], na_position='last').head(5)
+            elif "Más cercana" in criterio_orden_cards:
+                df_cards = df.sort_values(by=['fecha_cierre_dt', 'precio_num'], ascending=[True, False], na_position='last').head(5)
+            else:
+                df_cards = df.sort_values(by=['precio_num'], ascending=False).head(5)
             
             for idx, row in df_cards.iterrows():
                 with st.container():
