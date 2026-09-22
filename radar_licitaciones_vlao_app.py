@@ -10,7 +10,7 @@ import streamlit as st
 
 # ==============================================================================
 # CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO
-# ============================================================================= proposal
+# ==============================================================================
 st.set_page_config(
     page_title="BID WIN VLAO - Oportunidades SECOP II 2026",
     layout="wide",
@@ -107,19 +107,37 @@ DEPARTAMENTOS_COLOMBIA = [
     "Santander", "Sucre", "Tolima", "Valle del Cauca", "Vaupés", "Vichada"
 ]
 
-MUNICIPIOS_PRINCIPALES = [
-    "Bogotá D.C.", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga",
-    "Cúcuta", "Pereira", "Santa Marta", "Ibagué", "Pasto", "Manizales", "Neiva",
-    "Villavicencio", "Armenia", "Popayán", "Valledupar", "Montería", "Sincelejo",
-    "Tunja", "Florencia", "Yopal", "Quibdó", "Arauca", "Mocoa", "San José del Guaviare",
-    "Puerto Carreño", "Mitú", "Inírida", "Leticia", "San Andrés", "Soacha", "Bello",
-    "Envigado", "Soledad", "Floridablanca", "Girón", "Piedecuesta", "Palmira", "Buenaventura",
-    "Tuluá", "Cartago", "Sogamoso", "Duitama", "Chía", "Zipaquirá", "Facatativá", "Fusagasugá",
-    "Girardot", "Espinal", "Pitalito", "Garzón", "Aguachica", "Ocaña", "Tumaco", "Ipiales"
-]
+DEPARTAMENTO_MUNICIPIOS_MAP = {
+    "Bogotá D.C.": ["Bogotá D.C."],
+    "Antioquia": ["Medellín", "Bello", "Envigado", "Itagüí", "Rionegro", "Apartadó", "Turbo", "Caucasia", "Sabanalarga", "Caldas", "La Estrella", "Copacabana", "Marinilla"],
+    "Atlántico": ["Barranquilla", "Soledad", "Malambo", "Sabanalarga", "Baranoa", "Puerto Colombia"],
+    "Bolívar": ["Cartagena", "Magangué", "Turbaco", "Arjona", "Carmen de Bolívar"],
+    "Boyacá": ["Tunja", "Sogamoso", "Duitama", "Chiquinquirá", "Puerto Boyacá", "Paipa"],
+    "Caldas": ["Manizales", "La Dorada", "Riosucio", "Villamaría", "Chinchiná"],
+    "Caquetá": ["Florencia", "San Vicente del Caguán"],
+    "Casanare": ["Yopal", "Aguazul", "Villanueva", "Paz de Ariporo"],
+    "Cauca": ["Popayán", "Santander de Quilichao", "Puerto Tejada"],
+    "Cesar": ["Valledupar", "Aguachica", "Agustín Codazzi", "Bosconia"],
+    "Chocó": ["Quibdó", "Istmina"],
+    "Córdoba": ["Montería", "Cereté", "Sahagún", "Lorica", "Montelíbano"],
+    "Cundinamarca": ["Soacha", "Chía", "Zipaquirá", "Facatativá", "Fusagasugá", "Girardot", "Mosquera", "Madrid", "Funza", "Cajicá", "Sopó", "Tocancipá"],
+    "Huila": ["Neiva", "Pitalito", "Garzón", "La Plata", "Campoalegre", "Gigante", "Palermo"],
+    "La Guajira": ["Riohacha", "Maicao", "Uribia", "Manaure"],
+    "Magdalena": ["Santa Marta", "Ciénaga", "Fundación", "Plato"],
+    "Meta": ["Villavicencio", "Acacías", "Granada", "Puerto López"],
+    "Nariño": ["Pasto", "Tumaco", "Ipiales"],
+    "Norte de Santander": ["Cúcuta", "Ocaña", "Pamplona", "Villa del Rosario", "Los Patios"],
+    "Quindío": ["Armenia", "Calarcá", "Montenegro", "Quimbaya"],
+    "Risaralda": ["Pereira", "Dosquebradas", "Santa Rosa de Cabal"],
+    "Santander": ["Bucaramanga", "Floridablanca", "Girón", "Piedecuesta", "Barrancabermeja", "San Gil"],
+    "Sucre": ["Sincelejo", "Corozal", "San Marcos"],
+    "Tolima": ["Ibagué", "Espinal", "Melgar", "Honda", "Mariquita"],
+    "Valle del Cauca": ["Cali", "Palmira", "Buenaventura", "Tuluá", "Cartago", "Buga", "Jamundí", "Yumbo"]
+}
 
-MODALIDADES_LISTA = [
-    "Todas las Modalidades",
+MUNICIPIOS_TODOS = sorted(list(set([m for lista in DEPARTAMENTO_MUNICIPIOS_MAP.values() for m in lista])))
+
+MODALIDADES_OPCIONES = [
     "Mínima Cuantía",
     "Selección Abreviada",
     "Licitación Pública",
@@ -128,8 +146,7 @@ MODALIDADES_LISTA = [
     "Régimen Especial"
 ]
 
-TIPOS_CONTRATO_LISTA = [
-    "Todos los Tipos",
+TIPOS_CONTRATO_OPCIONES = [
     "Obra Pública",
     "Suministro",
     "Interventoría / Consultoría",
@@ -219,41 +236,43 @@ def match_location(val_from_dataset, list_selected):
             return True
     return False
 
-def match_modalidad(val_mod, sel_mod):
-    if sel_mod == "Todas las Modalidades" or not sel_mod:
+def match_modalidad_multi(val_mod, sel_modalidades_list):
+    if not sel_modalidades_list:
         return True
     val_n = normalizar_texto(val_mod)
-    sel_n = normalizar_texto(sel_mod)
-    if "minima" in sel_n:
-        return "minima" in val_n or "mínima" in val_n
-    if "abreviada" in sel_n:
-        return "abreviad" in val_n
-    if "licitacion" in sel_n:
-        return "licitac" in val_n
-    if "concurso" in sel_n:
-        return "concurso" in val_n
-    if "directa" in sel_n:
-        return "directa" in val_n
-    if "regimen" in sel_n:
-        return "regimen" in val_n or "régimen" in val_n
-    return True
+    for sel in sel_modalidades_list:
+        sel_n = normalizar_texto(sel)
+        if "minima" in sel_n and ("minima" in val_n or "mínima" in val_n):
+            return True
+        if "abreviada" in sel_n and "abreviad" in val_n:
+            return True
+        if "licitacion" in sel_n and "licitac" in val_n:
+            return True
+        if "concurso" in sel_n and "concurso" in val_n:
+            return True
+        if "directa" in sel_n and "directa" in val_n:
+            return True
+        if "regimen" in sel_n and ("regimen" in val_n or "régimen" in val_n):
+            return True
+    return False
 
-def match_tipo_contrato(val_tipo, sel_tipo):
-    if sel_tipo == "Todos los Tipos" or not sel_tipo:
+def match_tipo_contrato_multi(val_tipo, sel_tipos_list):
+    if not sel_tipos_list:
         return True
     val_n = normalizar_texto(val_tipo)
-    sel_n = normalizar_texto(sel_tipo)
-    if "obra" in sel_n:
-        return "obra" in val_n
-    if "suministro" in sel_n:
-        return "suministr" in val_n
-    if "interventoria" in sel_n or "consultoria" in sel_n:
-        return "interventor" in val_n or "consultor" in val_n or "estudio" in val_n
-    if "compraventa" in sel_n:
-        return "compra" in val_n or "venta" in val_n
-    if "prestacion" in sel_n or "servicios" in sel_n:
-        return "servicio" in val_n or "prestac" in val_n
-    return True
+    for sel in sel_tipos_list:
+        sel_n = normalizar_texto(sel)
+        if "obra" in sel_n and "obra" in val_n:
+            return True
+        if "suministro" in sel_n and "suministr" in val_n:
+            return True
+        if ("interventoria" in sel_n or "consultoria" in sel_n) and ("interventor" in val_n or "consultor" in val_n or "estudio" in val_n):
+            return True
+        if "compraventa" in sel_n and ("compra" in val_n or "venta" in val_n):
+            return True
+        if ("prestacion" in sel_n or "servicios" in sel_n) and ("servicio" in val_n or "prestac" in val_n):
+            return True
+    return False
 
 def match_estado(val_est, sel_est):
     if sel_est == "Todos los Estados" or not sel_est:
@@ -331,23 +350,23 @@ def parsear_fecha_secop(val):
         pass
     return pd.NaT, val_str[:10] if len(val_str) >= 10 else val_str
 
-def get_index_safe(lst, item):
+def get_index_safe(options_list, target_val):
     try:
-        return lst.index(item)
+        return options_list.index(target_val)
     except Exception:
         return 0
 
 # ==============================================================================
-# CONEXIÓN Y DESCARGA A SODA API (DATOS.GOV.CO - STRICT 2026 - SERVER-SIDE QUERY)
+# CONEXIÓN Y DESCARGA A SODA API (DATOS.GOV.CO - STRICT 2026 - FULL SERVER FILTER)
 # ==============================================================================
 @st.cache_data(ttl=300)
 def descargar_secop_2026(
-    dias_ventana=365,
-    sector_codigo="TODOS",
-    modalidad_sel="Todas las Modalidades",
     dptos_sel=None,
     ciudades_sel=None,
-    tipo_contrato_sel="Todos los Tipos",
+    modalidad_sel_list=None,
+    tipo_contrato_sel_list=None,
+    sector_codigo="TODOS",
+    dias_ventana=365,
     limite=5000
 ):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
@@ -367,12 +386,14 @@ def descargar_secop_2026(
 
     condiciones = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
 
-    # 1. Filtro Departamento & Ciudad en Servidor con tolerancia a tildes
+    # 1. Filtro Departamento & Ciudad a nivel de Servidor (SODA $where)
     loc_conds = []
     if dptos_sel:
-        loc_conds.extend(get_soda_location_conditions("departamento_entidad", dptos_sel))
+        c_dptos = get_soda_location_conditions('departamento_entidad', dptos_sel)
+        loc_conds.extend(c_dptos)
     if ciudades_sel:
-        loc_conds.extend(get_soda_location_conditions("ciudad_entidad", ciudades_sel))
+        c_ciuds = get_soda_location_conditions('ciudad_entidad', ciudades_sel)
+        loc_conds.extend(c_ciuds)
     if loc_conds:
         condiciones.append(f"({' OR '.join(loc_conds)})")
 
@@ -385,23 +406,34 @@ def descargar_secop_2026(
         sub_c = [f"codigo_principal_de_categoria like '%{c}%'" for c in cods]
         condiciones.append(f"({' OR '.join(sub_c)})")
 
-    # 3. Modalidad Filter
-    if "Mínima" in modalidad_sel:
-        condiciones.append("(lower(modalidad_de_contratacion) like '%minima%' or lower(modalidad_de_contratacion) like '%mínima%')")
-    elif "Abreviada" in modalidad_sel:
-        condiciones.append("lower(modalidad_de_contratacion) like '%abreviad%'")
-    elif "Licitación" in modalidad_sel:
-        condiciones.append("lower(modalidad_de_contratacion) like '%licitac%'")
-    elif "Concurso" in modalidad_sel:
-        condiciones.append("lower(modalidad_de_contratacion) like '%concurso%'")
-    elif "Directa" in modalidad_sel:
-        condiciones.append("lower(modalidad_de_contratacion) like '%directa%'")
+    # 3. Modalidad Filter (Multiple)
+    if modalidad_sel_list:
+        sub_mod = []
+        for m_item in modalidad_sel_list:
+            if "Mínima" in m_item:
+                sub_mod.append("(lower(modalidad_de_contratacion) like '%minima%' or lower(modalidad_de_contratacion) like '%mínima%')")
+            elif "Abreviada" in m_item:
+                sub_mod.append("lower(modalidad_de_contratacion) like '%abreviad%'")
+            elif "Licitación" in m_item:
+                sub_mod.append("lower(modalidad_de_contratacion) like '%licitac%'")
+            elif "Concurso" in m_item:
+                sub_mod.append("lower(modalidad_de_contratacion) like '%concurso%'")
+            elif "Directa" in m_item:
+                sub_mod.append("lower(modalidad_de_contratacion) like '%directa%'")
+            elif "Régimen" in m_item or "Regimen" in m_item:
+                sub_mod.append("(lower(modalidad_de_contratacion) like '%regimen%' or lower(modalidad_de_contratacion) like '%régimen%')")
+        if sub_mod:
+            condiciones.append(f"({' OR '.join(sub_mod)})")
 
-    # 4. Tipo Contrato Filter
-    if tipo_contrato_sel != "Todos los Tipos":
-        q_t = normalizar_texto(tipo_contrato_sel.split(' ')[0])
-        if q_t:
-            condiciones.append(f"lower(tipo_de_contrato) like '%{q_t[:4]}%'")
+    # 4. Tipo Contrato Filter (Multiple)
+    if tipo_contrato_sel_list:
+        sub_tipo = []
+        for t_item in tipo_contrato_sel_list:
+            q_t = normalizar_texto(t_item.split(' ')[0])
+            if q_t:
+                sub_tipo.append(f"lower(tipo_de_contrato) like '%{q_t[:4]}%'")
+        if sub_tipo:
+            condiciones.append(f"({' OR '.join(sub_tipo)})")
 
     params = {
         "$select": select_cols,
@@ -420,7 +452,7 @@ def descargar_secop_2026(
         resp.raise_for_status()
         data = resp.json()
     except Exception:
-        # Fallback de seguridad abierto si SoQL es demasiado complejo
+        # Fallback de seguridad abierto
         conds_fb = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
         params_fb = {
             "$select": select_cols,
@@ -504,48 +536,64 @@ def exportar_df_a_excel(df_filtrado):
     return buffer.getvalue()
 
 # ==============================================================================
-# ⚙️ CONSOLA DE FILTROS DE ENTRADA (MANTENIMIENTO DE ESTADO EN SESSION_STATE)
+# ⚙️ PANTALLA DE INICIO: CONSOLA DE FILTROS DE ENTRADA
 # ==============================================================================
 st.markdown("### ⚙️ Selecciona y aplica los filtros para encontrar la oportunidad a tu medida")
-st.caption("Configura los parámetros clave de ubicación, modalidad y sector para realizar la consulta en SECOP II.")
+st.caption("Configura los parámetros clave de ubicación, modalidad, presupuesto y sector para realizar la consulta en SECOP II.")
 
-# Cargar session state previo para que los controles no se borren
 cfg_saved = st.session_state.get("filtros_guardados", {})
 
-with st.form(key="form_filtros_entrada"):
-    # Fila 1: Ubicación Geográfica (Departamento + Municipio Selección)
-    c1, c2 = st.columns(2)
-    
-    with c1:
-        dptos_sel = st.multiselect(
-            "📍 Ubicación Geográfica (Departamento):",
-            options=DEPARTAMENTOS_COLOMBIA,
-            default=cfg_saved.get("dptos_sel", []),
-            help="Selecciona uno o varios departamentos."
-        )
-    with c2:
-        ciudades_sel = st.multiselect(
-            "🏙️ Ciudad / Municipio (Selección Desplegable):",
-            options=MUNICIPIOS_PRINCIPALES,
-            default=cfg_saved.get("ciudades_sel", []),
-            help="Selecciona una o varias ciudades/municipios principales."
-        )
+# 1. Ubicación Geográfica Interactivas fuera de form para filtro dinámico de municipio
+c1, c2 = st.columns(2)
 
-    # Fila 2: Definición Jurídica y Contractual
+with c1:
+    dptos_sel = st.multiselect(
+        "📍 Ubicación Geográfica (Departamento):",
+        options=DEPARTAMENTOS_COLOMBIA,
+        default=cfg_saved.get("dptos_sel", []),
+        key="dptos_sel_widget",
+        help="Selecciona uno o varios departamentos para filtrar los municipios disponibles."
+    )
+
+# Mapeo dinámico de municipios con procesos según departamento seleccionado
+if dptos_sel:
+    muni_filtrados = set()
+    for d_item in dptos_sel:
+        if d_item in DEPARTAMENTO_MUNICIPIOS_MAP:
+            muni_filtrados.update(DEPARTAMENTO_MUNICIPIOS_MAP[d_item])
+    if muni_filtrados:
+        municipios_opciones_actuales = sorted(list(muni_filtrados))
+    else:
+        municipios_opciones_actuales = MUNICIPIOS_TODOS
+else:
+    municipios_opciones_actuales = MUNICIPIOS_TODOS
+
+with c2:
+    default_ciuds = [c for c in cfg_saved.get("ciudades_sel", []) if c in municipios_opciones_actuales]
+    ciudades_sel = st.multiselect(
+        "🏙️ Ciudad / Municipio (Sólo Municipios Activos del Departamento):",
+        options=municipios_opciones_actuales,
+        default=default_ciuds,
+        key="ciudades_sel_widget",
+        help="Muestra únicamente municipios correspondientes a él o los departamentos seleccionados."
+    )
+
+with st.form(key="form_filtros_entrada"):
+    # Fila 2: Definición Jurídica y Contractual (MODALIDAD Y TIPO MULTIPLE)
     c3, c4, c5 = st.columns(3)
     with c3:
-        idx_mod = get_index_safe(MODALIDADES_LISTA, cfg_saved.get("modalidad_sel", "Todas las Modalidades"))
-        modalidad_sel = st.selectbox(
-            "📜 Modalidad de Contratación:",
-            options=MODALIDADES_LISTA,
-            index=idx_mod
+        modalidad_sel_list = st.multiselect(
+            "📜 Modalidad de Contratación (Selección Múltiple):",
+            options=MODALIDADES_OPCIONES,
+            default=cfg_saved.get("modalidad_sel_list", []),
+            help="Puedes elegir una o varias modalidades al mismo tiempo (ej. Licitación Pública + Selección Abreviada)."
         )
     with c4:
-        idx_tipo = get_index_safe(TIPOS_CONTRATO_LISTA, cfg_saved.get("tipo_contrato_sel", "Todos los Tipos"))
-        tipo_contrato_sel = st.selectbox(
-            "📑 Tipo de Contrato:",
-            options=TIPOS_CONTRATO_LISTA,
-            index=idx_tipo
+        tipo_contrato_sel_list = st.multiselect(
+            "📑 Tipo de Contrato (Selección Múltiple):",
+            options=TIPOS_CONTRATO_OPCIONES,
+            default=cfg_saved.get("tipo_contrato_sel_list", []),
+            help="Puedes elegir uno o varios tipos de contrato (ej. Obra Pública + Interventoría)."
         )
     with c5:
         sectores_keys = list(SECTORES_UNSPSC.keys())
@@ -556,7 +604,27 @@ with st.form(key="form_filtros_entrada"):
             index=idx_sec
         )
 
-    # Fila 3: Estado, Fase & Ventana de Tiempos
+    # Fila 3: Presupuesto Mínimo y Máximo por Separado (Cajas de Texto / Numéricas)
+    st.markdown("##### 💰 Rangos de Presupuesto ($ COP)")
+    cm1, cm2 = st.columns(2)
+    with cm1:
+        monto_min_m = st.number_input(
+            "💵 Valor Mínimo Presupuesto (Millones COP):",
+            min_value=0.0,
+            value=float(cfg_saved.get("monto_min_m", 0.0)),
+            step=10.0,
+            help="Escribe el presupuesto mínimo en millones de pesos (ej. 50 para $50.000.000 COP)."
+        )
+    with cm2:
+        monto_max_m = st.number_input(
+            "💵 Valor Máximo Presupuesto (Millones COP - 0 para sin límite):",
+            min_value=0.0,
+            value=float(cfg_saved.get("monto_max_m", 0.0)),
+            step=50.0,
+            help="Escribe el presupuesto máximo en millones de pesos. Dejar en 0 para no aplicar tope superior."
+        )
+
+    # Fila 4: Estado, Fase & Ventana de Tiempos
     c6, c7, c8 = st.columns(3)
     with c6:
         idx_est = get_index_safe(ESTADOS_RESUMEN_LISTA, cfg_saved.get("estado_sel", "Todos los Estados"))
@@ -580,7 +648,7 @@ with st.form(key="form_filtros_entrada"):
             index=idx_vent
         )
 
-    # Fila 4: Criterios Adicionales & Anti-OPS
+    # Fila 5: Criterios Adicionales & Anti-OPS
     c9, c10 = st.columns([2, 1])
     with c9:
         palabra_clave = st.text_input(
@@ -610,8 +678,10 @@ if btn_buscar:
     st.session_state["filtros_guardados"] = {
         "dptos_sel": dptos_sel,
         "ciudades_sel": ciudades_sel,
-        "modalidad_sel": modalidad_sel,
-        "tipo_contrato_sel": tipo_contrato_sel,
+        "modalidad_sel_list": modalidad_sel_list,
+        "tipo_contrato_sel_list": tipo_contrato_sel_list,
+        "monto_min_m": monto_min_m,
+        "monto_max_m": monto_max_m,
         "sector_sel": sector_sel,
         "estado_sel": estado_sel,
         "fase_sel": fase_sel,
@@ -637,20 +707,20 @@ if st.session_state.get("ejecutado_busqueda"):
 
     s_sel = cfg.get("sector_sel", "🌐 Todos los Sectores de la Economía (Sin Filtro Previo)")
     cod_sector = SECTORES_UNSPSC.get(s_sel, "TODOS")
-    m_sel = cfg.get("modalidad_sel", "Todas las Modalidades")
     sel_dptos = cfg.get("dptos_sel", [])
     sel_ciudades = cfg.get("ciudades_sel", [])
-    sel_tipo = cfg.get("tipo_contrato_sel", "Todos los Tipos")
+    sel_mod_list = cfg.get("modalidad_sel_list", [])
+    sel_tipo_list = cfg.get("tipo_contrato_sel_list", [])
 
     with st.spinner("🚀 Cargando oportunidades de SECOP II (2026)..."):
         try:
             df_raw = descargar_secop_2026(
-                dias_ventana=m_dias,
-                sector_codigo=cod_sector,
-                modalidad_sel=m_sel,
                 dptos_sel=sel_dptos,
                 ciudades_sel=sel_ciudades,
-                tipo_contrato_sel=sel_tipo,
+                modalidad_sel_list=sel_mod_list,
+                tipo_contrato_sel_list=sel_tipo_list,
+                sector_codigo=cod_sector,
+                dias_ventana=m_dias,
                 limite=5000
             )
         except Exception as e:
@@ -661,7 +731,7 @@ if st.session_state.get("ejecutado_busqueda"):
         df = df_raw.copy()
 
         # ----------------------------------------------------------------------
-        # APLICACIÓN DE FILTROS RIGUROSOS Y ROBUSTOS EN PANDAS
+        # APLICACIÓN DE FILTROS RIGUROSOS Y ROBUSTOS
         # ----------------------------------------------------------------------
         
         # 1. Departamento
@@ -672,25 +742,33 @@ if st.session_state.get("ejecutado_busqueda"):
         if sel_ciudades and 'ciudad_entidad' in df.columns:
             df = df[df['ciudad_entidad'].apply(lambda val: match_location(val, sel_ciudades))]
 
-        # 3. Tipo de Contrato
-        if sel_tipo != "Todos los Tipos" and 'tipo_de_contrato' in df.columns:
-            df = df[df['tipo_de_contrato'].apply(lambda val: match_tipo_contrato(val, sel_tipo))]
+        # 3. Tipo de Contrato (Múltiple)
+        if sel_tipo_list and 'tipo_de_contrato' in df.columns:
+            df = df[df['tipo_de_contrato'].apply(lambda val: match_tipo_contrato_multi(val, sel_tipo_list))]
 
-        # 4. Estado Resumen
+        # 4. Modalidad (Múltiple)
+        if sel_mod_list and 'modalidad_de_contratacion' in df.columns:
+            df = df[df['modalidad_de_contratacion'].apply(lambda val: match_modalidad_multi(val, sel_mod_list))]
+
+        # 5. Rango Presupuesto (Valor Mínimo y Máximo)
+        val_min_p = cfg.get("monto_min_m", 0.0) * 1000000
+        val_max_p = cfg.get("monto_max_m", 0.0) * 1000000
+        if val_min_p > 0 and 'precio_num' in df.columns:
+            df = df[df['precio_num'] >= val_min_p]
+        if val_max_p > 0 and 'precio_num' in df.columns:
+            df = df[df['precio_num'] <= val_max_p]
+
+        # 6. Estado Resumen
         sel_est = cfg.get("estado_sel", "Todos los Estados")
         if sel_est != "Todos los Estados" and 'estado_resumen' in df.columns:
             df = df[df['estado_resumen'].apply(lambda val: match_estado(val, sel_est))]
 
-        # 5. Fase
+        # 7. Fase
         sel_fase = cfg.get("fase_sel", "Todas las Fases")
         if sel_fase != "Todas las Fases" and 'fase' in df.columns:
             df = df[df['fase'].apply(lambda val: match_fase(val, sel_fase))]
 
-        # 6. Modalidad (Filtro en Pandas complementario)
-        if m_sel != "Todas las Modalidades" and 'modalidad_de_contratacion' in df.columns:
-            df = df[df['modalidad_de_contratacion'].apply(lambda val: match_modalidad(val, m_sel))]
-
-        # 7. Filtro Anti-OPS
+        # 8. Filtro Anti-OPS
         if cfg.get("filtro_anti_ops") and 'modalidad_de_contratacion' in df.columns and 'nombre_del_procedimiento' in df.columns:
             palabras_ops = ['prestacion de servicios', 'honorarios', 'apoyo a la gestion', 'persona natural', 'ops']
             def es_ops(row):
@@ -702,7 +780,7 @@ if st.session_state.get("ejecutado_busqueda"):
                 return False
             df = df[~df.apply(es_ops, axis=1)]
 
-        # 8. Palabra Clave Libre
+        # 9. Palabra Clave Libre
         kw_p = cfg.get("palabra_clave", "").strip()
         if kw_p:
             kw_norm = normalizar_texto(kw_p)
@@ -727,7 +805,7 @@ if st.session_state.get("ejecutado_busqueda"):
                 key="input_entidad_fase2"
             )
         with c_ent2:
-            st.write("") # Spacer
+            st.write("")
             st.caption("Filtra instantáneamente la entidad dentro de las oportunidades seleccionadas.")
 
         if entidad_query_fase2.strip() and 'entidad' in df.columns:
@@ -779,7 +857,7 @@ if st.session_state.get("ejecutado_busqueda"):
                         "💰 Mayor Presupuesto ($ COP)"
                     ],
                     index=0,
-                    key="select_orden_cards_v7"
+                    key="select_orden_cards_v8"
                 )
 
             if "Más lejana" in criterio_orden_cards:
