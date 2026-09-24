@@ -142,31 +142,39 @@ DEPARTAMENTOS_COLOMBIA = [
 ]
 
 DEPARTAMENTO_MUNICIPIOS_MAP = {
+    "Amazonas": ["Leticia", "Puerto Nariño"],
+    "Antioquia": ["Medellín", "Bello", "Envigado", "Itagüí", "Rionegro", "Apartadó", "Turbo", "Caucasia", "Sabanalarga", "Caldas", "La Estrella", "Copacabana", "Marinilla", "Puerto Berrío", "Yarumal", "Necoclí"],
+    "Arauca": ["Arauca", "Tame", "Saravena", "Arauquita"],
+    "Atlántico": ["Barranquilla", "Soledad", "Malambo", "Sabanalarga", "Baranoa", "Puerto Colombia", "Galapa"],
     "Bogotá D.C.": ["Bogotá D.C."],
-    "Antioquia": ["Medellín", "Bello", "Envigado", "Itagüí", "Rionegro", "Apartadó", "Turbo", "Caucasia", "Sabanalarga", "Caldas", "La Estrella", "Copacabana", "Marinilla"],
-    "Atlántico": ["Barranquilla", "Soledad", "Malambo", "Sabanalarga", "Baranoa", "Puerto Colombia"],
-    "Bolívar": ["Cartagena", "Magangué", "Turbaco", "Arjona", "Carmen de Bolívar"],
-    "Boyacá": ["Tunja", "Sogamoso", "Duitama", "Chiquinquirá", "Puerto Boyacá", "Paipa"],
-    "Caldas": ["Manizales", "La Dorada", "Riosucio", "Villamaría", "Chinchiná"],
-    "Caquetá": ["Florencia", "San Vicente del Caguán"],
-    "Casanare": ["Yopal", "Aguazul", "Villanueva", "Paz de Ariporo"],
-    "Cauca": ["Popayán", "Santander de Quilichao", "Puerto Tejada"],
-    "Cesar": ["Valledupar", "Aguachica", "Agustín Codazzi", "Bosconia"],
-    "Chocó": ["Quibdó", "Istmina"],
-    "Córdoba": ["Montería", "Cereté", "Sahagún", "Lorica", "Montelíbano"],
-    "Cundinamarca": ["Soacha", "Chía", "Zipaquirá", "Facatativá", "Fusagasugá", "Girardot", "Mosquera", "Madrid", "Funza", "Cajicá", "Sopó", "Tocancipá"],
-    "Huila": ["Neiva", "Pitalito", "Garzón", "La Plata", "Campoalegre", "Gigante", "Palermo"],
-    "La Guajira": ["Riohacha", "Maicao", "Uribia", "Manaure"],
-    "Magdalena": ["Santa Marta", "Ciénaga", "Fundación", "Plato"],
-    "Meta": ["Villavicencio", "Acacías", "Granada", "Puerto López"],
-    "Nariño": ["Pasto", "Tumaco", "Ipiales"],
-    "Norte de Santander": ["Cúcuta", "Ocaña", "Pamplona", "Villa del Rosario", "Los Patios"],
-    "Quindío": ["Armenia", "Calarcá", "Montenegro", "Quimbaya"],
-    "Risaralda": ["Pereira", "Dosquebradas", "Santa Rosa de Cabal"],
-    "Santander": ["Bucaramanga", "Floridablanca", "Girón", "Piedecuesta", "Barrancabermeja", "San Gil"],
-    "Sucre": ["Sincelejo", "Corozal", "San Marcos"],
-    "Tolima": ["Ibagué", "Espinal", "Melgar", "Honda", "Mariquita"],
-    "Valle del Cauca": ["Cali", "Palmira", "Buenaventura", "Tuluá", "Cartago", "Buga", "Jamundí", "Yumbo"]
+    "Bolívar": ["Cartagena", "Magangué", "Turbaco", "Arjona", "Carmen de Bolívar", "Mompox"],
+    "Boyacá": ["Tunja", "Sogamoso", "Duitama", "Chiquinquirá", "Puerto Boyacá", "Paipa", "Garagoa", "Moniquirá"],
+    "Caldas": ["Manizales", "La Dorada", "Riosucio", "Villamaría", "Chinchiná", "Pensilvania"],
+    "Caquetá": ["Florencia", "San Vicente del Caguán", "Puerto Rico", "Belén de los Andaquíes"],
+    "Casanare": ["Yopal", "Aguazul", "Villanueva", "Paz de Ariporo", "Tauramena", "Maní"],
+    "Cauca": ["Popayán", "Santander de Quilichao", "Puerto Tejada", "Patía", "Piendamó"],
+    "Cesar": ["Valledupar", "Aguachica", "Agustín Codazzi", "Bosconia", "Curumaní", "La Jagua de Ibirico"],
+    "Chocó": ["Quibdó", "Istmina", "Tadó", "Bahía Solano", "Acandí"],
+    "Córdoba": ["Montería", "Cereté", "Sahagún", "Lorica", "Montelíbano", "Planeta Rica", "Tierralta"],
+    "Cundinamarca": ["Soacha", "Chía", "Zipaquirá", "Facatativá", "Fusagasugá", "Girardot", "Mosquera", "Madrid", "Funza", "Cajicá", "Sopó", "Tocancipá", "Ubaté", "Villeta", "Pacho", "La Calera"],
+    "Guainía": ["Inírida"],
+    "Guaviare": ["San José del Guaviare", "Calamar", "El Retorno", "Miraflores"],
+    "Huila": ["Neiva", "Pitalito", "Garzón", "La Plata", "Campoalegre", "Gigante", "Palermo", "San Agustín"],
+    "La Guajira": ["Riohacha", "Maicao", "Uribia", "Manaure", "Fonseca", "San Juan del Cesar"],
+    "Magdalena": ["Santa Marta", "Ciénaga", "Fundación", "Plato", "El Banco"],
+    "Meta": ["Villavicencio", "Acacías", "Granada", "Puerto López", "Puerto Gaitán"],
+    "Nariño": ["Pasto", "Tumaco", "Ipiales", "Túquerres"],
+    "Norte de Santander": ["Cúcuta", "Ocaña", "Pamplona", "Villa del Rosario", "Los Patios", "Tibú"],
+    "Putumayo": ["Mocoa", "Puerto Asís", "Orito", "Sibundoy", "Valle del Guamuez"],
+    "Quindío": ["Armenia", "Calarcá", "Montenegro", "Quimbaya", "La Tebaida"],
+    "Risaralda": ["Pereira", "Dosquebradas", "Santa Rosa de Cabal", "La Virginia"],
+    "San Andrés": ["San Andrés", "Providencia"],
+    "Santander": ["Bucaramanga", "Floridablanca", "Girón", "Piedecuesta", "Barrancabermeja", "San Gil", "Socorro", "Vélez", "Málaga"],
+    "Sucre": ["Sincelejo", "Corozal", "San Marcos", "Tolú", "Sampués"],
+    "Tolima": ["Ibagué", "Espinal", "Melgar", "Honda", "Mariquita", "Lérida", "Chaparral"],
+    "Valle del Cauca": ["Cali", "Palmira", "Buenaventura", "Tuluá", "Cartago", "Buga", "Jamundí", "Yumbo", "Sevilla", "Zarzal"],
+    "Vaupés": ["Mitú"],
+    "Vichada": ["Puerto Carreño", "Cumaribo"]
 }
 
 MUNICIPIOS_TODOS = sorted(list(set([m for lista in DEPARTAMENTO_MUNICIPIOS_MAP.values() for m in lista])))
@@ -261,17 +269,41 @@ def get_soda_location_conditions(field_name, sel_list):
 def match_location(val_from_dataset, list_selected):
     if not list_selected:
         return True
-    val_clean = clean_alpha(val_from_dataset)
-    if not val_clean:
+    val_norm = normalizar_texto(val_from_dataset)
+    if not val_norm:
         return False
+    
     for sel in list_selected:
-        sel_clean = clean_alpha(sel)
-        if not sel_clean:
+        sel_norm = normalizar_texto(sel)
+        if not sel_norm:
             continue
-        if "bogota" in sel_clean and "bogota" in val_clean:
+            
+        if sel_norm == val_norm:
             return True
-        if sel_clean in val_clean or val_clean in sel_clean:
+            
+        if "bogota" in sel_norm and "bogota" in val_norm:
             return True
+            
+        if "san andres" in sel_norm and "san andres" in val_norm:
+            return True
+            
+        if "guaviare" in sel_norm and "guaviare" in val_norm:
+            return True
+            
+        if sel_norm in val_norm:
+            if sel_norm == "santander" and "norte de santander" in val_norm:
+                continue
+            if sel_norm == "cauca" and "valle del cauca" in val_norm:
+                continue
+            return True
+            
+        if val_norm in sel_norm:
+            if val_norm == "santander" and "norte de santander" in sel_norm:
+                continue
+            if val_norm == "cauca" and "valle del cauca" in sel_norm:
+                continue
+            return True
+            
     return False
 
 def match_modalidad_multi(val_mod, sel_modalidades_list):
