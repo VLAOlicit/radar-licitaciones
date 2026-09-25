@@ -755,6 +755,91 @@ def descargar_paa_proyectados_secop(
 
 # EXPORTACIÓN A EXCEL GENERAL
 # ==============================================================================
+
+@st.cache_data(ttl=300)
+def descargar_reps_profesionales_domiciliarios(
+    dptos_sel=None,
+    ciudades_sel=None,
+    especialidad_query="",
+    limite=3000
+):
+    """Consulta la API de Datos Abiertos del REPS (c36g-9fc2.json) para profesionales independientes domiciliarios."""
+    base_url = "https://www.datos.gov.co/resource/c36g-9fc2.json"
+    
+    condiciones = [
+        "(lower(clase_persona) like '%profesional%' or lower(clase_prestador) like '%profesional%' or lower(clprestador) like '%profesional%')",
+        "(lower(modalidad_nombre) like '%domiciliar%' or lower(modalidad) like '%domiciliar%' or lower(nommodalidad) like '%domiciliar%' or lower(servicio_nombre) like '%domiciliar%')"
+    ]
+    
+    if dptos_sel:
+        c_dptos = get_soda_location_conditions('depa_nombre', dptos_sel)
+        if not c_dptos:
+            c_dptos = get_soda_location_conditions('departamento', dptos_sel)
+        if c_dptos:
+            condiciones.append(f"({' OR '.join(c_dptos)})")
+
+    if ciudades_sel:
+        c_ciuds = get_soda_location_conditions('muni_nombre', ciudades_sel)
+        if not c_ciuds:
+            c_ciuds = get_soda_location_conditions('municipio', ciudades_sel)
+        if c_ciuds:
+            condiciones.append(f"({' OR '.join(c_ciuds)})")
+
+    if especialidad_query.strip():
+        q_esp = normalizar_texto(especialidad_query)
+        condiciones.append(f"(lower(servicio_nombre) like '%{q_esp}%' or lower(nombre_servicio) like '%{q_esp}%')")
+
+    params = {
+        "": " AND ".join(condiciones),
+        "": str(limite)
+    }
+
+    headers = {'User-Agent': 'Mozilla/5.0'}
+
+    try:
+        url = f"{base_url}?{urllib.parse.urlencode(params)}"
+        resp = requests.get(url, headers=headers, timeout=35)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception:
+        data = []
+
+    df = pd.DataFrame(data)
+
+    if not df.empty:
+        col_map = {}
+        for c in df.columns:
+            c_lower = c.lower()
+            if 'depa' in c_lower or 'dpto' in c_lower or 'departamento' in c_lower:
+                col_map[c] = 'departamento'
+            elif 'muni' in c_lower or 'ciudad' in c_lower or 'municipio' in c_lower:
+                col_map[c] = 'municipio'
+            elif ('nombre' in c_lower or 'prestador' in c_lower or 'razon' in c_lower) and 'depa' not in c_lower and 'muni' not in c_lower:
+                col_map[c] = 'nombre_profesional'
+            elif 'servicio' in c_lower or 'especialidad' in c_lower:
+                col_map[c] = 'servicio_especialidad'
+            elif 'modalidad' in c_lower:
+                col_map[c] = 'modalidad'
+            elif 'telef' in c_lower or 'movil' in c_lower or 'celular' in c_lower:
+                col_map[c] = 'telefono'
+            elif 'direc' in c_lower or 'domicilio' in c_lower:
+                col_map[c] = 'direccion'
+            elif 'email' in c_lower or 'correo' in c_lower:
+                col_map[c] = 'email'
+            elif 'nitu' in c_lower or 'nit' in c_lower or 'numero_identificacion' in c_lower or 'cedula' in c_lower:
+                col_map[c] = 'identificacion'
+            elif 'habilitacion' in c_lower or 'codigo' in c_lower:
+                col_map[c] = 'codigo_habilitacion'
+
+        df = df.rename(columns=col_map)
+        
+        for k_col in ['nombre_profesional', 'departamento', 'municipio', 'servicio_especialidad', 'modalidad', 'telefono', 'direccion', 'email', 'identificacion', 'codigo_habilitacion']:
+            if k_col not in df.columns:
+                df[k_col] = "Por verificar"
+
+    return df
+
+
 def exportar_df_a_excel(df_filtrado, nombre_hoja='Oportunidades'):
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
@@ -764,12 +849,13 @@ def exportar_df_a_excel(df_filtrado, nombre_hoja='Oportunidades'):
 # ==============================================================================
 # NAVEGACIÓN PRINCIPAL EN PESTAÑAS (5 SUPERPODERES VLAO)
 # ==============================================================================
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🎯 1. Radar Oportunidades SECOP II",
     "🔮 2. Plan Anual Adquisiciones (PAA)",
     "📊 3. Ranking 30 Entidades Atrasadas PAA",
     "💰 4. Inteligencia de Precios Adjudicados",
-    "🏆 5. Oportunidades de Oro VLAO"
+    "🏆 5. Oportunidades de Oro VLAO",
+    "🏥 6. REPS - Profesionales Salud Domiciliarios"
 ])
 
 # ==============================================================================
@@ -1408,3 +1494,148 @@ with tab5:
 
             excel_gold = exportar_df_a_excel(df_g, 'Oportunidades_de_Oro')
             st.download_button("📥 Exportar Lista Corta de Oro a Excel (.xlsx)", data=excel_gold, file_name="oportunidades_de_oro_vlao_2026.xlsx")
+
+
+# ==============================================================================
+# 🏥 PESTAÑA 6: REPS - PROFESIONALES DE LA SALUD DOMICILIARIOS
+# ==============================================================================
+with tab6:
+    st.markdown("### 🏥 Directorio Oficial REPS: Profesionales Independientes Domiciliarios")
+    st.caption("Consulta y exporta la lista oficial de profesionales de la salud independientes habilitados en el REPS (Minsalud / Datos Abiertos) para prestación de servicios de salud domiciliarios.")
+
+    cfg_saved_reps = st.session_state.get("filtros_guardados_reps", {})
+
+    cr1, cr2 = st.columns(2)
+    with cr1:
+        dptos_reps = st.multiselect(
+            "📍 Ubicación (Departamento):",
+            options=DEPARTAMENTOS_COLOMBIA,
+            default=cfg_saved_reps.get("dptos_reps", []),
+            key="dptos_reps_widget"
+        )
+
+    if dptos_reps:
+        muni_reps_set = set()
+        for d_item in dptos_reps:
+            if d_item in DEPARTAMENTO_MUNICIPIOS_MAP:
+                muni_reps_set.update(DEPARTAMENTO_MUNICIPIOS_MAP[d_item])
+        muni_reps_actuales = sorted(list(muni_reps_set)) if muni_reps_set else MUNICIPIOS_TODOS
+    else:
+        muni_reps_actuales = MUNICIPIOS_TODOS
+
+    with cr2:
+        default_ciuds_reps = [c for c in cfg_saved_reps.get("ciudades_reps", []) if c in muni_reps_actuales]
+        ciudades_reps = st.multiselect(
+            "🏙️ Ciudad / Municipio:",
+            options=muni_reps_actuales,
+            default=default_ciuds_reps,
+            key="ciudades_reps_widget"
+        )
+
+    with st.form(key="form_reps"):
+        cf1, cf2 = st.columns(2)
+        with cf1:
+            esp_reps = st.text_input(
+                "🩺 Especialidad / Servicio de Salud:",
+                value=cfg_saved_reps.get("esp_reps", ""),
+                placeholder="Ej: Enfermería, Medicina General, Fisioterapia, Terapia Ocupacional, Fonoaudiología..."
+            )
+        with cf2:
+            nombre_query_reps = st.text_input(
+                "👤 Búsqueda por Nombre / NIT / Cédula del Profesional:",
+                value=cfg_saved_reps.get("nombre_query_reps", ""),
+                placeholder="Ej: Juan Pérez, 1018..., Dra. María..."
+            )
+
+        btn_reps = st.form_submit_button(
+            label="🏥 CONSULTAR PROFESIONALES HABILITADOS EN REPS",
+            use_container_width=True,
+            type="primary"
+        )
+
+    if btn_reps:
+        st.session_state["ejecutado_reps"] = True
+        st.session_state["filtros_guardados_reps"] = {
+            "dptos_reps": dptos_reps,
+            "ciudades_reps": ciudades_reps,
+            "esp_reps": esp_reps,
+            "nombre_query_reps": nombre_query_reps
+        }
+
+    if st.session_state.get("ejecutado_reps"):
+        cfg_r = st.session_state.get("filtros_guardados_reps", {})
+
+        with st.spinner("🏥 Consultando profesionales independientes en la base de datos del REPS (Minsalud / Datos Abiertos)..."):
+            df_reps = descargar_reps_profesionales_domiciliarios(
+                dptos_sel=cfg_r.get("dptos_reps", []),
+                ciudades_sel=cfg_r.get("ciudades_reps", []),
+                especialidad_query=cfg_r.get("esp_reps", ""),
+                limite=3000
+            )
+
+        if not df_reps.empty:
+            if cfg_r.get("nombre_query_reps", "").strip():
+                kw_nom = normalizar_texto(cfg_r.get("nombre_query_reps", ""))
+                df_reps = df_reps[
+                    df_reps['nombre_profesional'].apply(normalizar_texto).str.contains(kw_nom) |
+                    df_reps['identificacion'].astype(str).str.contains(kw_nom)
+                ]
+
+            m_r1, m_r2, m_r3 = st.columns(3)
+            with m_r1:
+                st.metric("👨‍⚕️ Total Profesionales Habilitados", f"{len(df_reps):,} profesionales")
+            with m_r2:
+                cant_muni = df_reps['municipio'].nunique() if 'municipio' in df_reps.columns else 0
+                st.metric("📍 Municipios con Oferta", f"{cant_muni} municipios")
+            with m_r3:
+                st.metric("🏥 Modalidad Registrada", "Extramural - Domiciliaria")
+
+            st.divider()
+            st.markdown("#### 🌟 Profesionales Independientes Destacados")
+
+            for idx, r_rep in df_reps.head(5).iterrows():
+                st.markdown(f"""
+                <div class="opportunity-card" style="border-left-color: #0284C7;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="card-title">👨‍⚕️ {r_rep.get('nombre_profesional', 'Profesional de Salud')}</span>
+                        <span class="card-badge" style="background-color:#E0F2FE; color:#0369A1;">🆔 REPS: {r_rep.get('codigo_habilitacion', 'Habilitado')}</span>
+                    </div>
+                    <div style="margin-top:10px; font-size:1.02rem; color:#1E293B;">
+                        🩺 <b>Servicio / Especialidad:</b> {r_rep.get('servicio_especialidad', 'Atención Domiciliaria')}
+                    </div>
+                    <div style="margin-top:8px; font-size:0.88rem; color:#475569;">
+                        📍 <b>Ubicación:</b> {r_rep.get('municipio', 'N/I')}, {r_rep.get('departamento', 'N/I')} | 
+                        🏠 <b>Modalidad:</b> {r_rep.get('modalidad', 'Domiciliaria')} | 
+                        📞 <b>Contacto:</b> {r_rep.get('telefono', 'N/I')} | ✉️ <b>Email:</b> {r_rep.get('email', 'N/I')}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.divider()
+
+            st.markdown(f"#### 📋 Directorio Completo REPS Domiciliario ({len(df_reps)} Registros)")
+            cols_reps_view = {
+                'nombre_profesional': 'Nombre del Profesional',
+                'identificacion': 'NIT / Cédula',
+                'departamento': 'Departamento',
+                'municipio': 'Municipio',
+                'servicio_especialidad': 'Especialidad / Servicio',
+                'modalidad': 'Modalidad',
+                'telefono': 'Teléfono',
+                'email': 'Correo Electrónico',
+                'direccion': 'Dirección',
+                'codigo_habilitacion': 'Código Habilitación REPS'
+            }
+            cols_pres = [c for c in cols_reps_view.keys() if c in df_reps.columns]
+            df_reps_view = df_reps[cols_pres].rename(columns={c: cols_reps_view[c] for c in cols_pres})
+
+            st.dataframe(df_reps_view, use_container_width=True)
+
+            excel_reps = exportar_df_a_excel(df_reps, 'Directorio_REPS_Domiciliarios')
+            st.download_button(
+                "📥 Exportar Directorio REPS Domiciliario a Excel (.xlsx)",
+                data=excel_reps,
+                file_name=f"directorio_reps_domiciliario_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+            )
+        else:
+            st.warning("⚠️ No se encontraron profesionales independientes habilitados en REPS que coincidan con los criterios seleccionados.")
+
