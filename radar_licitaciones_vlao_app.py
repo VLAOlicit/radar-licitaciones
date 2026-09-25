@@ -669,6 +669,90 @@ def calcular_ranking_entidades_atrasadas_paa(
     return grouped
 
 # ==============================================================================
+
+@st.cache_data(ttl=300)
+def descargar_paa_proyectados_secop(
+    dptos_sel=None,
+    sector_codigo="TODOS",
+    mes_sel="Todos los Meses",
+    limite=3000
+):
+    """
+    Descarga e identifica únicamente intenciones de compra y procesos proyectados (PAA / Borrador / Futuros).
+    Filtra rigurosamente para EXCLUIR procesos ya cerrados, adjudicados o vencidos en fechas pasadas.
+    """
+    df_raw = descargar_secop_2026(
+        dptos_sel=dptos_sel,
+        sector_codigo=sector_codigo,
+        limite=limite
+    )
+    
+    if df_raw.empty:
+        return pd.DataFrame()
+        
+    df = df_raw.copy()
+    hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # 1. Excluir estados de procesos cerrados, adjudicados, desiertos o celebrados
+    estados_excluir = ['adjudic', 'cerrad', 'celebrad', 'desiert', 'cancelad', 'terminad', 'liquidad']
+    def es_estado_cerrado(val):
+        v_norm = normalizar_texto(val)
+        return any(e in v_norm for e in estados_excluir)
+        
+    if 'estado_resumen' in df.columns:
+        df = df[~df['estado_resumen'].apply(es_estado_cerrado)]
+    if 'fase' in df.columns:
+        df = df[~df['fase'].apply(es_estado_cerrado)]
+        
+    # 2. Filtro estricto de fecha de cierre: solo procesos futuros o por definir en pliegos
+    def es_futuro_o_planeacion(row):
+        fase = normalizar_texto(row.get('fase', ''))
+        est = normalizar_texto(row.get('estado_resumen', ''))
+        f_cierre = row.get('fecha_cierre_dt', pd.NaT)
+        
+        # Si está en Borrador o Planeación, es 100% PAA/Futuro
+        if 'borrador' in fase or 'planeac' in fase or 'borrador' in est or 'planeac' in est:
+            return True
+            
+        # Si tiene fecha de cierre y es posterior o igual a hoy
+        if pd.notna(f_cierre):
+            return f_cierre >= hoy
+                
+        # Si la fecha de cierre no está definida aún
+        return True
+
+    df = df[df.apply(es_futuro_o_planeacion, axis=1)]
+
+    # 3. Mapeo/Filtro por Mes Proyectado
+    meses_map = {
+        'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6,
+        'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12
+    }
+    
+    def asignar_mes_proyectado(row):
+        f_cierre = row.get('fecha_cierre_dt', pd.NaT)
+        f_pub = row.get('fecha_pub_dt', pd.NaT)
+        
+        if pd.notna(f_cierre) and f_cierre >= hoy:
+            m_num = f_cierre.month
+        elif pd.notna(f_pub):
+            m_num = f_pub.month
+        else:
+            m_num = hoy.month
+            
+        for m_name, m_val in meses_map.items():
+            if m_val == m_num:
+                return m_name
+        return "Por definir"
+
+    df['mes_proyectado'] = df.apply(asignar_mes_proyectado, axis=1)
+
+    # Si el usuario seleccionó un mes específico
+    if mes_sel and mes_sel != "Todos los Meses":
+        df = df[df['mes_proyectado'] == mes_sel]
+
+    return df
+
 # EXPORTACIÓN A EXCEL GENERAL
 # ==============================================================================
 def exportar_df_a_excel(df_filtrado, nombre_hoja='Oportunidades'):
@@ -978,11 +1062,11 @@ with tab1:
             st.warning("⚠️ No se encontraron procesos con los criterios ingresados.")
 
 # ==============================================================================
-# 🔮 PESTAÑA 2: PLAN ANUAL DE ADQUISICIONES (PAA)
+# 🔮 PESTAÑA 2: PLAN ANUAL DE ADQUISICIONES (PAA - PROYECTADOS Y FUTUROS)
 # ==============================================================================
 with tab2:
     st.markdown("### 🔮 Superpoder 1: Plan Anual de Adquisiciones (PAA - Intenciones Futuras de Compra)")
-    st.caption("Anticípate a la competencia consultando qué obras, mantenimientos e ingeniería planean contratar las entidades estatales en los próximos meses.")
+    st.caption("Anticípate a la competencia consultando únicamente obras, mantenimientos e ingeniería en planeación/borrador o con aperturas futuras.")
 
     with st.form(key="form_paa"):
         cp1, cp2 = st.columns(2)
@@ -1003,35 +1087,45 @@ with tab2:
         st.session_state["ejecutado_paa"] = True
         
         cod_s_paa = SECTORES_UNSPSC.get(sector_paa, "TODOS")
-        with st.spinner("🔮 Consultando proyectos planeados en el PAA de SECOP II..."):
+        with st.spinner("🔮 Filtrando proyectos planeados y aperturas futuras en el PAA de SECOP II..."):
             try:
-                df_paa_raw = descargar_secop_2026(
+                df_paa_raw = descargar_paa_proyectados_secop(
                     dptos_sel=dptos_paa,
                     sector_codigo=cod_s_paa,
+                    mes_sel=mes_paa,
                     limite=3000
                 )
-            except Exception:
+            except Exception as e:
+                st.error(f"Error consultando PAA: {e}")
                 df_paa_raw = pd.DataFrame()
 
         if not df_paa_raw.empty:
             df_p = df_paa_raw.copy()
             if palabra_paa.strip():
                 kw = normalizar_texto(palabra_paa)
-                df_p = df_p[df_p['nombre_del_procedimiento'].apply(normalizar_texto).str.contains(kw)]
+                df_p = df_p[
+                    df_p['nombre_del_procedimiento'].apply(normalizar_texto).str.contains(kw) |
+                    df_p['descripci_n_del_procedimiento'].apply(normalizar_texto).str.contains(kw)
+                ]
 
             p1, p2, p3 = st.columns(3)
             with p1:
-                st.metric("🔮 Total Compras Proyectadas", f"{len(df_p):,} proyectos")
+                st.metric("🔮 Total Compras Proyectadas Futuras", f"{len(df_p):,} proyectos")
             with p2:
                 bolsa_p = df_p['precio_num'].sum() if 'precio_num' in df_p.columns else 0
                 st.metric("💰 Bolsa Futura Estimada", formato_pesos_cop(bolsa_p))
             with p3:
-                st.metric("⚡ Ventaja Comercial", "30 a 90 días de anticipación")
+                st.metric("⚡ Ventaja Comercial", "Procesos en planeación / aperturas futuras")
 
             st.divider()
-            st.markdown("#### 🌟 Proyectos Destacados en Planificación PAA")
+            st.markdown("#### 🌟 Proyectos Destacados en Planificación PAA (Futuros)")
             
             for idx, r in df_p.head(5).iterrows():
+                fase_txt = r.get('fase', 'Planeación / PAA')
+                est_txt = r.get('estado_resumen', 'Borrador')
+                mes_proy = r.get('mes_proyectado', 'Por definir')
+                cierre_f = r.get('fecha_cierre_clean', 'Por definir')
+                
                 st.markdown(f"""
                 <div class="paa-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1043,17 +1137,49 @@ with tab2:
                     </div>
                     <div style="margin-top:8px; font-size:0.88rem; color:#475569;">
                         📍 <b>Ubicación:</b> {r.get('ciudad_entidad', 'N/I')}, {r.get('departamento_entidad', 'N/I')} | 
-                        📋 <b>Fase Actual:</b> <span class="phase-badge">Planeación / PAA</span> | 
-                        📅 <b>Estimado Apertura:</b> Próximos meses 2026
+                        📋 <b>Estado / Fase:</b> <span class="phase-badge">{fase_txt} / {est_txt}</span> | 
+                        📅 <b>Mes Proyectado:</b> <b>{mes_proy}</b> | 
+                        ⏱️ <b>Cierre Estimado:</b> {cierre_f}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+                
+                link_p = r.get('urlproceso', '')
+                if link_p:
+                    st.markdown(f"🔗 [**Ver Pliegos en SECOP II 🔗**]({link_p})")
+                st.divider()
 
-            st.markdown("#### 📋 Matriz Completa de Compras Futuras (PAA)")
-            st.dataframe(df_p[['entidad', 'ciudad_entidad', 'nombre_del_procedimiento', 'precio_formateado', 'urlproceso']], use_container_width=True)
+            st.markdown("#### 📋 Matriz Completa de Compras Futuras (PAA / Borradores)")
+            cols_view_paa = {
+                'referencia_del_proceso': 'Referencia SECOP II',
+                'entidad': 'Entidad Compradora',
+                'departamento_entidad': 'Departamento',
+                'ciudad_entidad': 'Ciudad / Municipio',
+                'nombre_del_procedimiento': 'Proyecto Futuro (PAA)',
+                'precio_formateado': 'Presupuesto Estimado ($ COP)',
+                'fase': 'Fase',
+                'mes_proyectado': 'Mes Proyectado',
+                'fecha_cierre_clean': 'Cierre Estimado',
+                'urlproceso': 'Link SECOP II'
+            }
+            cols_present = [c for c in cols_view_paa.keys() if c in df_p.columns]
+            df_p_show = df_p[cols_present].rename(columns={c: cols_view_paa[c] for c in cols_present})
 
-            excel_paa = exportar_df_a_excel(df_p, 'Plan_Anual_Adquisiciones')
+            st.dataframe(
+                df_p_show,
+                use_container_width=True,
+                column_config={
+                    "Link SECOP II": st.column_config.LinkColumn(
+                        "Link SECOP II",
+                        display_text="Ver Pliegos en SECOP II 🔗"
+                    )
+                }
+            )
+
+            excel_paa = exportar_df_a_excel(df_p_show, 'Plan_Anual_Adquisiciones')
             st.download_button("📥 Exportar Plan PAA a Excel (.xlsx)", data=excel_paa, file_name="plan_adquisiciones_vlao_2026.xlsx")
+        else:
+            st.warning("⚠️ No se encontraron proyectos proyectados o futuros en el PAA con los filtros seleccionados.")
 
 # ==============================================================================
 # 📊 PESTAÑA 3: RANKING 30 ENTIDADES ATRASADAS PAA
