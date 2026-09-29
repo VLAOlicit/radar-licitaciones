@@ -10,10 +10,10 @@ import requests
 import streamlit as st
 
 # ==============================================================================
-# CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO MULTI-SUITE (V12.0)
+# CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO MULTI-SUITE (V18.0)
 # ==============================================================================
 st.set_page_config(
-    page_title="BID WIN VLAO - Suite de Inteligencia Licitatoria SECOP II 2026",
+    page_title="BID WIN VLAO - Suite de Inteligencia Licitatoria y Presupuestal 2026",
     layout="wide",
     page_icon="🎯"
 )
@@ -140,25 +140,32 @@ st.markdown("""
 # Encabezado Oficial
 st.markdown('<div class="brand-title">🎯 BID WIN VLAO</div>', unsafe_allow_html=True)
 st.markdown('<div class="brand-slogan">"Te acerca a tu próximo negocio con el Estado"</div>', unsafe_allow_html=True)
-st.markdown('<div class="brand-line"><b>Línea de Negocio: VLAO INGENIERÍA S.A.S.</b> (Mantenimiento, Obras Civiles, Cubiertas, Instalaciones Eléctricas, Iluminación, Ferretería, Plomería e Interventoría)</div>', unsafe_allow_html=True)
+st.markdown('<div class="brand-line"><b>Línea de Negocio: VLAO INGENIERÍA S.A.S.</b> (Segmentos UNSPSC: 22, 26, 30, 31, 32, 39, 40, 44, 47, 72, 77, 81 y 90)</div>', unsafe_allow_html=True)
 st.divider()
 
 # ==============================================================================
-# DICCIONARIOS Y LISTAS DE SELECCIÓN PARAMETRIZABLES
+# DICCIONARIOS Y LISTAS DE SELECCIÓN PARAMETRIZABLES (UNSPSC POR SEGMENTO Y MUNICIPIOS COMPLETOS)
 # ==============================================================================
+
 SECTORES_UNSPSC = {
-    "🌐 Todos los Sectores de la Economía (Sin Filtro Previo)": "TODOS",
-    "💼 Portafolio Combinado VLAO INGENIERÍA (3116, 7210, 3912, 8110, etc.)": "VLAO_COMBINADO",
-    "🛠️ 3116 / 3010 - Ferretería, Herrajes y Materiales de Construcción": "3116|3010",
-    "🏗️ 7210 / 7212 / 7214 / 7215 - Obras Civiles, Edificaciones y Mantenimiento": "7210|7212|7214|7215",
-    "⚡ 3912 / 3911 / 2612 - Equipos Eléctricos, Iluminación y Redes": "3912|3911|2612",
-    "📐 8110 / 8010 - Ingeniería, Consultoría e Interventoría": "8110|8010",
-    "🎨 3121 / 3015 - Pinturas, Acabados e Impermeabilización": "3121|3015",
-    "🚰 4014 / 4017 / 3018 - Tuberías, Plomería y Sanitarios": "4014|4017|3018",
-    "🔧 2711 / 2510 - Herramientas de Mano y Maquinaria": "2711|2510"
+    "🌐 Todos los Sectores (Sin Filtro Previo)": "TODOS",
+    "💼 Portafolio VLAO INGENIERÍA (Segmentos 22, 26, 30, 31, 32, 39, 40, 44, 47, 72, 77, 81, 90)": "VLAO_COMBINADO",
+    "🏗️ Segmento 22 - Estructuras, Edificación y Componentes de Construcción": "22",
+    "⚙️ Segmento 26 - Maquinaria y Distribución de Energía": "26",
+    "🧱 Segmento 30 - Estructuras, Planta y Materiales de Construcción": "30",
+    "🔩 Segmento 31 - Componentes y Suministros de Fabricación": "31",
+    "🧪 Segmento 32 - Resinas, Plásticos, Caucho y Fibras": "32",
+    "⚡ Segmento 39 - Equipos Eléctricos, Iluminación y Componentes": "39",
+    "🚰 Segmento 40 - Equipos de Fluidos, Tuberías y Plomería": "40",
+    "🖨️ Segmento 44 - Equipos y Suministros de Oficina y Planta": "44",
+    "🧹 Segmento 47 - Equipos de Limpieza y Suministros de Aseo": "47",
+    "🛠️ Segmento 72 - Servicios de Edificación, Obras Civiles y Mantenimiento": "72",
+    "🌿 Segmento 77 - Servicios Medioambientales": "77",
+    "📐 Segmento 81 - Ingeniería, Investigación y Consultoría / Interventoría": "81",
+    "🌲 Segmento 90 - Servicios de Conservación, Reforestación y Obras Ambientales": "90"
 }
 
-SECTORES_VLAO_SEGMENTOS = ['72', '39', '31', '30', '40', '81', '80', '27', '25']
+SECTORES_VLAO_SEGMENTOS = ['22', '26', '30', '31', '32', '39', '40', '44', '47', '72', '77', '81', '90']
 
 DEPARTAMENTOS_COLOMBIA = [
     "Amazonas", "Antioquia", "Arauca", "Atlántico", "Bogotá D.C.", "Bolívar",
@@ -169,36 +176,39 @@ DEPARTAMENTOS_COLOMBIA = [
 ]
 
 DEPARTAMENTO_MUNICIPIOS_MAP = {
+    "Amazonas": ["Leticia", "Puerto Nariño", "El Encanto", "La Chorrera", "La Pedrera", "Mitiú", "Puerto Alegría", "Puerto Arica", "Puerto Santander", "Tarapacá"],
+    "Antioquia": ["Medellín", "Abejorral", "Abriaquí", "Alejandría", "Amagá", "Amalfi", "Andes", "Angelópolis", "Angostura", "Anorí", "Anzá", "Apartadó", "Arboletes", "Argelia", "Armenia", "Barbosa", "Bello", "Belmira", "Betania", "Betulia", "Briceño", "Buriticá", "Cáceres", "Caicedo", "Caldas", "Campamento", "Cañasgordas", "Caracolí", "Caramanta", "Carepa", "Carolina del Príncipe", "Caucasia", "Chigorodó", "Cisnreos", "Ciudad Bolívar", "Cocorná", "Concepción", "Concordia", "Copacabana", "Dabeiba", "Donmatías", "Ebéjico", "El Bagre", "El Carmen de Viboral", "El Peñol", "El Retiro", "Entrerríos", "Envigado", "Fredonia", "Frontera", "Giraldo", "Girardota", "Gómez Plata", "Granada", "Guadalupe", "Guarne", "Guatapé", "Heliconia", "Hispania", "Itagüí", "Ituango", "Jardín", "Jericó", "La Ceja", "La Estrella", "La Pintada", "La Unión", "Liborina", "Macedonia", "Maceo", "Marinilla", "Montebello", "Murindó", "Mutatá", "Nariño", "Nechí", "Necoclí", "Olaya", "Peque", "Pueblorrico", "Puerto Berrío", "Puerto Nare", "Puerto Triunfo", "Remedios", "Rionegro", "Sabanalarga", "Sabaneta", "Salgar", "San Andrés de Cuerquia", "San Carlos", "San Francisco", "San Jerónimo", "San José de la Montaña", "San Juan de Urabá", "San Luis", "San Pedro de Urabá", "San Pedro de los Milagros", "San Rafael", "San Roque", "San Vicente Ferrer", "Santa Bárbara", "Santa Fe de Antioquia", "Santa Rosa de Osos", "Santo Domingo", "El Santuario", "Segovia", "Sonsón", "Sopetrán", "Támesis", "Tarazá", "Tarso", "Titiribí", "Toledo", "Turbo", "Uramita", "Urrao", "Valdivia", "Valparaíso", "Vegachí", "Venecia", "Vigía del Fuerte", "Yalí", "Yarumal", "Yolombó", "Yondó", "Zaragoza"],
+    "Arauca": ["Arauca", "Arauquita", "Cravo Norte", "Fortul", "Puerto Rondón", "Saravena", "Tame"],
+    "Atlántico": ["Barranquilla", "Baranoa", "Campo de la Cruz", "Candelaria", "Galapa", "Juan de Acosta", "Luruaco", "Malambo", "Manatí", "Palmar de Varela", "Piojó", "Polonuevo", "Ponedera", "Puerto Colombia", "Repelón", "Sabanagrande", "Sabanalarga", "Santa Lucía", "Santo Tomás", "Soledad", "Suan", "Tubará", "Usiacurí"],
     "Bogotá D.C.": ["Bogotá D.C."],
-    "Antioquia": ["Medellín", "Bello", "Envigado", "Itagüí", "Rionegro", "Apartadó", "Turbo", "Caucasia", "Sabanalarga", "Caldas", "La Estrella", "Copacabana", "Marinilla"],
-    "Atlántico": ["Barranquilla", "Soledad", "Malambo", "Sabanalarga", "Baranoa", "Puerto Colombia"],
-    "Bolívar": ["Cartagena", "Magangué", "Turbaco", "Arjona", "Carmen de Bolívar"],
-    "Boyacá": ["Tunja", "Sogamoso", "Duitama", "Chiquinquirá", "Puerto Boyacá", "Paipa"],
-    "Caldas": ["Manizales", "La Dorada", "Riosucio", "Villamaría", "Chinchiná"],
-    "Caquetá": ["Florencia", "San Vicente del Caguán"],
-    "Casanare": ["Yopal", "Aguazul", "Villanueva", "Paz de Ariporo"],
-    "Cauca": ["Popayán", "Santander de Quilichao", "Puerto Tejada"],
-    "Cesar": ["Valledupar", "Aguachica", "Agustín Codazzi", "Bosconia"],
-    "Chocó": ["Quibdó", "Istmina"],
-    "Córdoba": ["Montería", "Cereté", "Sahagún", "Lorica", "Montelíbano"],
-    "Cundinamarca": ["Soacha", "Chía", "Zipaquirá", "Facatativá", "Fusagasugá", "Girardot", "Mosquera", "Madrid", "Funza", "Cajicá", "Sopó", "Tocancipá"],
-    "Huila": ["Neiva", "Pitalito", "Garzón", "La Plata", "Campoalegre", "Gigante", "Palermo"],
-    "La Guajira": ["Riohacha", "Maicao", "Uribia", "Manaure"],
-    "Magdalena": ["Santa Marta", "Ciénaga", "Fundación", "Plato"],
-    "Meta": ["Villavicencio", "Acacías", "Granada", "Puerto López"],
-    "Nariño": ["Pasto", "Tumaco", "Ipiales"],
-    "Norte de Santander": ["Cúcuta", "Ocaña", "Pamplona", "Villa del Rosario", "Los Patios"],
-    "Quindío": ["Armenia", "Calarcá", "Montenegro", "Quimbaya"],
-    "Risaralda": ["Pereira", "Dosquebradas", "Santa Rosa de Cabal"],
-    "Santander": ["Bucaramanga", "Floridablanca", "Girón", "Piedecuesta", "Barrancabermeja", "San Gil"],
-    "Sucre": ["Sincelejo", "Corozal", "San Marcos"],
-    "Tolima": ["Ibagué", "Espinal", "Melgar", "Honda", "Mariquita"],
-    "Valle del Cauca": ["Cali", "Palmira", "Buenaventura", "Tuluá", "Cartago", "Buga", "Jamundí", "Yumbo"],
-    "Amazonas": ["Leticia", "Puerto Nariño"],
-    "Arauca": ["Arauca", "Tame", "Saravena"],
-    "Guaviare": ["San José del Guaviare", "Calamar"],
-    "Putumayo": ["Mocoa", "Puerto Asís", "Orito"],
-    "San Andrés": ["San Andrés", "Providencia"]
+    "Bolívar": ["Cartagena", "Achí", "Altos del Rosario", "Arenal", "Arjona", "Arroyohondo", "Barranco de Loba", "Calamar", "Cantagallo", "El Carmen de Bolívar", "El Guamo", "El Peñón", "Hatillo de Loba", "Magangué", "Mahates", "Margarita", "María La Baja", "Montecristo", "Mompox", "Morales", "Norosí", "Pinillos", "Regidor", "Río Viejo", "San Cristóbal", "San Estanislao", "San Fernando", "San Jacinto", "San Jacinto del Cauca", "San Juan Nepomuceno", "San Martín de Loba", "San Pablo", "Santa Catalina", "Santa Rosa", "Santa Rosa del Sur", "Simití", "Soplaviento", "Talaigua Nuevo", "Tiquisio", "Turbaco", "Turbaná", "Villanueva", "Zambrano"],
+    "Boyacá": ["Tunja", "Almeida", "Aquitania", "Arcabuco", "Belén", "Berbeo", "Betéitiva", "Boavita", "Boyacá", "Briceño", "Buenavista", "Busbanzá", "Caldas", "Campohermoso", "Cerinza", "Chinavita", "Chiquinquirá", "Chíquiza", "Chiscas", "Chita", "Chitaraque", "Chivatá", "Ciénega", "Cómbita", "Coper", "Corrales", "Covarachía", "Cubará", "Cucaita", "Cuítiva", "Duitama", "El Cocuy", "El Espino", "Firavitoba", "Floresta", "Gachantivá", "Gámeza", "Garagoa", "Guacamayas", "Guateque", "Guayatá", "Güicán", "Iza", "Jenesano", "Jericó", "Labranzagrande", "La Capilla", "La Victoria", "La Uvita", "Villa de Leyva", "Macanal", "Maripí", "Miraflores", "Mongua", "Monguí", "Moniquirá", "Motavita", "Muzo", "Nobsa", "Nuevo Colón", "Oicatá", "Otanche", "Pachavita", "Páez", "Paipa", "Pajarito", "Panqueba", "Pauna", "Paya", "Paz de Río", "Pesca", "Pisba", "Puerto Boyacá", "Quípama", "Ramiriquí", "Rondón", "Ssaboyá", "Sáchica", "Samacá", "San Eduardo", "San José de Pare", "San Luis de Gasceno", "San Mateo", "San Miguel de Sema", "San Pablo de Borbur", "Santana", "Santa María", "Santa Rosa de Viterbo", "Santa Sofía", "Sativanorte", "Sativasur", "Siachoque", "Soatá", "Socha", "Socotá", "Sogamoso", "Somondoco", "Sora", "Sordadá", "Soracá", "Sotaquirá", "Susacón", "Sutamarchán", "Sutatenza", "Tasco", "Tenza", "Tibarosa", "Tinjacá", "Tipacoque", "Toca", "Togüí", "Tota", "Tununguá", "Turmequé", "Tuta", "Tutazá", "Úmbita", "Ventaquemada", "Viracachá", "Zetaquira"],
+    "Caldas": ["Manizales", "Aguadas", "Anserma", "Aranzazu", "Belalcázar", "Chinchiná", "Filadelfia", "La Dorada", "La Merced", "Manzanares", "Marmato", "Marquetalia", "Marulanda", "Neira", "Norcasia", "Pácora", "Palestina", "Pensilvania", "Riosucio", "Risaralda", "Salamina", "Samaná", "San José", "Supía", "Victoria", "Villamaría", "Viterbo"],
+    "Caquetá": ["Florencia", "Albania", "Belén de los Andaquíes", "Cartagena del Chairá", "Curillo", "El Lichonal", "El Paujil", "La Montañita", "Morelia", "Puerto Rico", "San José del Fratricidio", "San Vicente del Caguán", "Solano", "Solita", "Valparaíso"],
+    "Casanare": ["Yopal", "Aguazul", "Cháreza", "Hato Corozal", "La Salina", "Maní", "Monterrey", "Nunchía", "Orocué", "Paz de Ariporo", "Pore", "Recetor", "Sabanalarga", "Sácama", "San Luis de Palenque", "Támara", "Tauramena", "Trinidad", "Villanueva"],
+    "Cauca": ["Popayán", "Almaguer", "Argelia", "Balboa", "Bolívar", "Buenos Aires", "Cajibío", "Caldono", "Caloto", "Corinto", "El Tambo", "Florencia", "Guachené", "Guapí", "Inzá", "Jambaló", "La Sierra", "La Vega", "López de Micay", "Mercaderes", "Miranda", "Morales", "Padilla", "Páez", "Patía", "Piamonte", "Piendamó", "Puerto Tejada", "Puracé", "Rosas", "San Sebastián", "Santander de Quilichao", "Santa Rosa", "Silvia", "Sotará", "Suárez", "Sucre", "Timbío", "Timbiquí", "Toribío", "Totoró", "Villa Rica"],
+    "Cesar": ["Valledupar", "Aguachica", "Agustín Codazzi", "Astrea", "Becerril", "Bosconia", "Chimichagua", "Chiriguaná", "Curumaní", "El Copey", "El Paso", "Gamarra", "González", "La Gloria", "La Jagua de Ibirico", "La Paz", "Manaure Balcón del Cesar", "Pailitas", "Pelaya", "Pueblo Bello", "Río de Oro", "San Alberto", "San Diego", "San Martín", "Tamalameque"],
+    "Chocó": ["Quibdó", "Acandí", "Alto Baudó", "Atrato", "Bagadó", "Bahía Solano", "Bajo Baudó", "Bojayá", "El Cantón de San Pablo", "Carmen del Darién", "Cértegui", "Condoto", "El Carmen de Atrato", "El Litoral del San Juan", "Istmina", "Juradó", "Lloró", "Medio Atrato", "Medio Baudó", "Medio San Juan", "Nóvita", "Nuquí", "Río Iró", "Río Quito", "Riosucio", "San José del Palmar", "Sipí", "Tadó", "Unuía", "Unión Panamericana"],
+    "Córdoba": ["Montería", "Ayapel", "Buenavista", "Canalete", "Cereté", "Chimá", "Chinú", "Ciénaga de Oro", "Cotorra", "La Apartada", "Lorica", "Los Córdobas", "Momil", "Montelíbano", "Moñitos", "Planeta Rica", "Pueblo Nuevo", "Puerto Escondido", "Puerto Libertador", "Purísima", "Sahagún", "San Andrés de Sotavento", "San Antero", "San Bernardo del Viento", "San Carlos", "San José de Uré", "San Pelayo", "Tierralta", "Tuchín", "Valencia"],
+    "Cundinamarca": ["Agua de Dios", "Albán", "Anapoima", "Anolaima", "Apulo", "Arbeláez", "Beltrán", "Bituima", "Bojacá", "Cabrera", "Cachipay", "Cajicá", "Caparrapí", "Cáqueza", "Carmen de Carupa", "Chaguaní", "Chía", "Chipaque", "Choachí", "Chocontá", "Cogua", "Cota", "Cucunubá", "El Colegio", "El Peñón", "El Rosal", "Facatativá", "Fómeque", "Fosca", "Funza", "Fúquene", "Fusagasugá", "Gachalá", "Gachancipá", "Gachetá", "Gama", "Girardot", "Granada", "Guachetá", "Guaduas", "Guasca", "Guataquí", "Guatavita", "Guayabal de Síquima", "Guayabetal", "Gutiérrez", "Jerusalén", "Junín", "La Calera", "La Mesa", "La Palma", "La Peña", "La Ubalá", "La Vega", "Lenguazaque", "Machetá", "Madrid", "Manta", "Medina", "Mosquera", "Nariño", "Nemocón", "Nilo", "Nimaima", "Nocaima", "Pacho", "Paime", "Pandi", "Paratebueno", "Pasca", "Puerto Salgar", "Pulí", "Quebradanegra", "Quetame", "Quipile", "Ricaurte", "San Antonio del Tequendama", "San Bernardo", "San Cayetano", "San Francisco", "San Juan de Rioseco", "Sasaima", "Sesquilé", "Sibaté", "Silvania", "Simijaca", "Soacha", "Sopó", "Subachoque", "Suesca", "Sutatausa", "Tabio", "Tausa", "Tena", "Tenjo", "Tibacuy", "Tibarosa", "Tibirita", "Tocaima", "Tocancipá", "Topaipí", "Ubalá", "Ubaque", "Ubaté", "Une", "Útica", "Venecia", "Vergara", "Viani", "Villagómez", "Villapinzón", "Villeta", "Viotá", "Yacopí", "Zipacón", "Zipaquirá"],
+    "Guainía": ["Inírida", "Barrancominas", "Mapiripana", "San Felipe", "Puerto Colombia", "La Guadalupe", "Cacahual", "Pana Pana"],
+    "Guaviare": ["San José del Guaviare", "Calamar", "El Retorno", "Miraflores"],
+    "Huila": ["Neiva", "Acevedo", "Agrado", "Aipe", "Algeciras", "Altamira", "Baraya", "Campoalegre", "Colombia", "Elías", "Garzón", "Gigante", "Guadalupe", "Hobo", "Íquira", "Isnos", "La Argentina", "La Plata", "Nátaga", "Oporapa", "Paicol", "Palermo", "Palestina", "Pital", "Pitalito", "Rivera", "Saladoblanco", "San Agustín", "Santa María", "Suaza", "Tarqui", "Tello", "Teruel", "Tesalia", "Timaná", "Villavieja", "Yaguará"],
+    "La Guajira": ["Riohacha", "Albania", "Barrancas", "Dibulla", "Distracción", "El Molino", "Fonseca", "Hatonuevo", "La Jagua del Pilar", "Maicao", "Manaure", "San Juan del Cesar", "Uribia", "Urumita", "Villanueva"],
+    "Magdalena": ["Santa Marta", "Algarrobo", "Aracataca", "Ariguaní", "Cerro de San Antonio", "Chibolo", "Ciénaga", "Concordia", "El Banco", "El Piñón", "El Retén", "Fundación", "Guamal", "Nueva Granada", "Pedraza", "Pijiño del Carmen", "Pivijay", "Plato", "Puebloviejo", "Remolino", "Sabanas de San Ángel", "Salamina", "San Zenón", "San Sebastián de Buenavista", "Santa Ana", "Santa Bárbara de Pinto", "Sitionuevo", "Tenerife", "Zapayán", "Zona Bananera"],
+    "Meta": ["Villavicencio", "Acacías", "Barranca de Upía", "Cabuyaro", "Castilla la Nueva", "Cubarral", "Cumaral", "El Calvario", "El Castillo", "El Dorado", "Fuente de Oro", "Granada", "Guamal", "La Macarena", "Lejanías", "Mapiripán", "Mesetas", "Puerto Concordia", "Puerto Gaitán", "Puerto López", "Puerto Lleras", "Puerto Rico", "Restrepo", "San Carlos de Guaroa", "San Juan de Arama", "San Juanito", "San Martín", "Uribe", "Vistahermosa"],
+    "Nariño": ["Pasto", "Albán", "Aldana", "Ancuya", "Arboleda", "Barbacoas", "Belén", "Buesaco", "Chachagüí", "Colón", "Consacá", "Contadero", "Córdoba", "Cuaspud", "Cumbal", "Cumbitara", "El Charco", "El Peñol", "El Rosario", "El Tablón de Gómez", "El Tambo", "Francisco Pizarro", "Funes", "Guachucal", "Guaitarilla", "Gualmatán", "Iles", "Imués", "Ipiales", "La Cruz", "La Florida", "La Llanada", "La Tola", "La Unión", "Leiva", "Linares", "Los Andes", "Magüí Payán", "Mallama", "Mosquera", "Nariño", "Olaya Herrera", "Ospina", "Policarpa", "Potosí", "Providencia", "Puerres", "Pupiales", "Ricaurte", "Roberto Payán", "Samaniego", "Sandoná", "San Bernardo", "San Lorenzo", "San Pablo", "San Pedro de Cartago", "Santa Bárbara", "Santacruz", "Sapuyes", "Taminango", "Tangua", "Tumaco", "Túquerres", "Yacuanquer"],
+    "Norte de Santander": ["Cúcuta", "Abrego", "Arboledas", "Bochalema", "Bucarasica", "Cáchira", "Cácota", "Chinácota", "Chitagá", "Convención", "Cúcuta", "Cucutilla", "Durania", "El Carmen", "El Tarra", "El Zulia", "Gramalote", "Hacarí", "Herrán", "Labateca", "La Esperanza", "La Playa", "Los Patios", "Lourdes", "Mutiscua", "Ocaña", "Pamplona", "Pamplonita", "Puerto Santander", "Ragonvalia", "Salazar", "San Calixto", "San Cayetano", "Santiago", "Sardinata", "Silos", "Teorama", "Tibú", "Toledo", "Villa Caro", "Villa del Rosario"],
+    "Putumayo": ["Mocoa", "Colón", "Orito", "Puerto Asís", "Puerto Caicedo", "Puerto Guzmán", "Puerto Leguízamo", "Sibundoy", "San Francisco", "San Miguel", "Santiago", "Valle del Guamuez", "Villagarzón"],
+    "Quindío": ["Armenia", "Buenavista", "Calarcá", "Circasia", "Córdoba", "Filandia", "Génova", "La Tebaida", "Montenegro", "Pijao", "Quimbaya", "Salento"],
+    "Risaralda": ["Pereira", "Apía", "Balboa", "Belén de Umbría", "Dosquebradas", "Guática", "La Celia", "La Virginia", "Marsella", "Mistrató", "Pueblo Rico", "Quinchía", "Santa Rosa de Cabal", "Santuario"],
+    "San Andrés": ["San Andrés", "Providencia"],
+    "Santander": ["Bucaramanga", "Aguada", "Albania", "Aratoca", "Barbosa", "Barichara", "Barrancabermeja", "Betulia", "Bolívar", "Cabrera", "California", "Capitanejo", "Carcasí", "Cepitá", "Cerrito", "Charalá", "Charta", "Chima", "Chipatá", "Cimitarra", "Concepción", "Confines", "Contratación", "Coromoro", "Curití", "El Carmen de Chucurí", "El Guacamayo", "El Peñón", "El Playón", "Encino", "Enciso", "Floridablanca", "Florián", "Galán", "Gámbita", "Girón", "Guaca", "Guadalupe", "Guapotá", "Guavatá", "Güepsa", "Hato", "Jesús María", "Jordán", "La Belleza", "Landázuri", "La Paz", "Lebrija", "Los Santos", "Macaravita", "Málaga", "Matanza", "Mogotes", "Molagavita", "Ocamonte", "Oiba", "Onzaga", "Palmar", "Palmas del Socorro", "Páramo", "Piedecuesta", "Pinchote", "Puente Nacional", "Puerto Parra", "Puerto Wilches", "Rionegro", "Sabana de Torres", "San Andrés", "San Benito", "San Gil", "San Joaquín", "San José de Miranda", "San Miguel", "San Vicente de Chucurí", "Santa Bárbara", "Santa Helena del Opón", "Simacota", "Socorro", "Suaita", "Sucre", "Suratá", "Tona", "Valle de San José", "Vélez", "Vetas", "Villanueva", "Zepatoca"],
+    "Sucre": ["Sincelejo", "Buenavista", "Caimito", "Coloso", "Corozal", "Coveñas", "Chalán", "El Roble", "Galeras", "Guaranda", "La Unión", "Los Palmitos", "Majagual", "Morroa", "Ovejas", "Palmito", "Sampués", "San Benito Abad", "San Juan de Betulia", "San Marcos", "San Onofre", "San Pedro", "Sincé", "Sucre", "Tolú", "Tolú Viejo"],
+    "Tolima": ["Ibagué", "Alpujarra", "Alvarado", "Ambalema", "Anzoátegui", "Armero Guayabal", "Ataco", "Cajamarca", "Carmen de Apicalá", "Casabianca", "Chaparral", "Coello", "Coyaima", "Cunday", "Dolores", "Espinal", "Falan", "Flamenco", "Fresno", "Guamo", "Herveo", "Honda", "Icononzo", "Lérida", "Líbano", "Mariquita", "Melgar", "Murillo", "Natagaima", "Ortega", "Palocabildo", "Piedras", "Planadas", "Prado", "Purificación", "Rioblanco", "Roncesvalles", "Rovira", "Saldaña", "San Antonio", "San Luis", "Santa Isabel", "Suárez", "Valle de San Juan", "Villarrica"],
+    "Valle del Cauca": ["Cali", "Alcalá", "Andalucía", "Ansermanuevo", "Argelia", "Bolívar", "Buenaventura", "Buga", "Bugalagrande", "Caicedonia", "Calima", "Candelaria", "Cartago", "Dagua", "El Águila", "El Cairo", "El Cerrito", "El Dovio", "Florida", "Ginebra", "Guacarí", "Guadalajara de Buga", "Jamundí", "La Cumbre", "La Unión", "La Victoria", "Obando", "Palmira", "Pradera", "Restrepo", "Riofrío", "Roldanillo", "San Pedro", "Sevilla", "Toro", "Trujillo", "Tuluá", "Ulloa", "Versalles", "Vijes", "Yotoco", "Yumbo", "Zarzal"],
+    "Vaupés": ["Mitú", "Carurú", "Pacoa", "Taraira", "Papunahua", "Yavaraté"],
+    "Vichada": ["Puerto Carreño", "La Primavera", "Santa Rosalía", "Cumaribo"]
 }
 
 MUNICIPIOS_TODOS = sorted(list(set([m for lista in DEPARTAMENTO_MUNICIPIOS_MAP.values() for m in lista])))
@@ -208,7 +218,7 @@ MODALIDADES_OPCIONES = [
     "Selección Abreviada",
     "Licitación Pública",
     "Concurso de Méritos",
-    "Contratación Directa",
+    "Subasta Pública",
     "Régimen Especial"
 ]
 
@@ -318,7 +328,7 @@ def match_modalidad_multi(val_mod, sel_modalidades_list):
             return True
         if "concurso" in sel_n and "concurso" in val_n:
             return True
-        if "directa" in sel_n and "directa" in val_n:
+        if "subasta" in sel_n and "subasta" in val_n:
             return True
         if "regimen" in sel_n and ("regimen" in val_n or "régimen" in val_n):
             return True
@@ -438,20 +448,23 @@ def descargar_secop_2026(
     limite=5000
 ):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
-    fecha_inicio_2026 = "2026-01-01T00:00:00"
-    if dias_ventana != 365:
-        f_calculada = (datetime.now() - timedelta(days=dias_ventana)).strftime("%Y-%m-%dT00:00:00")
-        if f_calculada > fecha_inicio_2026:
-            fecha_inicio_2026 = f_calculada
+    
+    # Aplicación del filtro de ventana de tiempo SEGÚN FECHA DE PUBLICACIÓN DE LA INVITACIÓN (fecha_de_publicacion_del)
+    f_calculada = (datetime.now() - timedelta(days=dias_ventana)).strftime("%Y-%m-%dT00:00:00")
+    fecha_inicio_filtro = f_calculada
 
     select_cols = (
         "referencia_del_proceso,entidad,departamento_entidad,ciudad_entidad,"
         "codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,"
         "precio_base,modalidad_de_contratacion,tipo_de_contrato,estado_resumen,fase,"
-        "fecha_de_publicacion_del,fecha_de_ultima_publicaci,fecha_de_recepcion_de,urlproceso"
+        "fecha_de_publicacion_del,fecha_de_ultima_publicaci,fecha_de_recepcion_de,urlproceso,visualizaciones_del"
     )
 
-    condiciones = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
+    # Exclusión permanente y estricta de Contratación Directa
+    condiciones = [
+        f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'",
+        "(lower(modalidad_de_contratacion) not like '%directa%' and lower(modalidad_de_contratacion) not like '%direct%')"
+    ]
 
     if dptos_sel:
         c_dptos = get_soda_location_conditions('departamento_entidad', dptos_sel)
@@ -462,12 +475,13 @@ def descargar_secop_2026(
         if c_ciuds:
             condiciones.append(f"({' OR '.join(c_ciuds)})")
 
+    # Filtrado por Segmento UNSPSC (2 dígitos)
     if sector_codigo == "VLAO_COMBINADO":
-        sub_c = [f"codigo_principal_de_categoria like '%{s}%'" for s in SECTORES_VLAO_SEGMENTOS]
+        sub_c = [f"codigo_principal_de_categoria like '{s}%'" for s in SECTORES_VLAO_SEGMENTOS]
         condiciones.append(f"({' OR '.join(sub_c)})")
     elif sector_codigo != "TODOS":
         cods = sector_codigo.split('|')
-        sub_c = [f"codigo_principal_de_categoria like '%{c}%'" for c in cods]
+        sub_c = [f"codigo_principal_de_categoria like '{c}%'" for c in cods]
         condiciones.append(f"({' OR '.join(sub_c)})")
 
     if modalidad_sel_list:
@@ -481,8 +495,8 @@ def descargar_secop_2026(
                 sub_mod.append("lower(modalidad_de_contratacion) like '%licitac%'")
             elif "Concurso" in m_item:
                 sub_mod.append("lower(modalidad_de_contratacion) like '%concurso%'")
-            elif "Directa" in m_item:
-                sub_mod.append("lower(modalidad_de_contratacion) like '%directa%'")
+            elif "Subasta" in m_item:
+                sub_mod.append("lower(modalidad_de_contratacion) like '%subasta%'")
             elif "Régimen" in m_item or "Regimen" in m_item:
                 sub_mod.append("(lower(modalidad_de_contratacion) like '%regimen%' or lower(modalidad_de_contratacion) like '%régimen%')")
         if sub_mod:
@@ -512,7 +526,10 @@ def descargar_secop_2026(
         resp.raise_for_status()
         data = resp.json()
     except Exception:
-        conds_fb = [f"fecha_de_publicacion_del >= '{fecha_inicio_2026}'"]
+        conds_fb = [
+            f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'",
+            "(lower(modalidad_de_contratacion) not like '%directa%' and lower(modalidad_de_contratacion) not like '%direct%')"
+        ]
         params_fb = {
             "$select": select_cols,
             "$where": " AND ".join(conds_fb),
@@ -538,6 +555,11 @@ def descargar_secop_2026(
         else:
             df['precio_num'] = 0
             df['precio_formateado'] = "$ 0 COP"
+
+        if 'visualizaciones_del' in df.columns:
+            df['visualizaciones'] = pd.to_numeric(df['visualizaciones_del'], errors='coerce').fillna(0).astype(int)
+        else:
+            df['visualizaciones'] = 0
 
         if 'fecha_de_publicacion_del' in df.columns:
             res_pub = [parsear_fecha_secop(v) for v in df['fecha_de_publicacion_del']]
@@ -576,12 +598,13 @@ def descargar_precios_adjudicados_secop(
         "referencia_del_proceso,entidad,departamento_entidad,ciudad_entidad,"
         "codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,"
         "precio_base,modalidad_de_contratacion,tipo_de_contrato,estado_resumen,"
-        "fecha_de_publicacion_del,urlproceso"
+        "fecha_de_publicacion_del,urlproceso,visualizaciones_del"
     )
 
     condiciones = [
         f"fecha_de_publicacion_del >= '{fecha_inicio}'",
-        "(lower(estado_resumen) like '%adjudicad%' or lower(fase) like '%adjudicad%' or lower(estado_resumen) like '%contratad%')"
+        "(lower(estado_resumen) like '%adjudicad%' or lower(fase) like '%adjudicad%' or lower(estado_resumen) like '%contratad%')",
+        "(lower(modalidad_de_contratacion) not like '%directa%' and lower(modalidad_de_contratacion) not like '%direct%')"
     ]
 
     if dptos_sel:
@@ -590,11 +613,11 @@ def descargar_precios_adjudicados_secop(
             condiciones.append(f"({' OR '.join(c_dptos)})")
 
     if sector_codigo == "VLAO_COMBINADO":
-        sub_c = [f"codigo_principal_de_categoria like '%{s}%'" for s in SECTORES_VLAO_SEGMENTOS]
+        sub_c = [f"codigo_principal_de_categoria like '{s}%'" for s in SECTORES_VLAO_SEGMENTOS]
         condiciones.append(f"({' OR '.join(sub_c)})")
     elif sector_codigo != "TODOS":
         cods = sector_codigo.split('|')
-        sub_c = [f"codigo_principal_de_categoria like '%{c}%'" for c in cods]
+        sub_c = [f"codigo_principal_de_categoria like '{c}%'" for c in cods]
         condiciones.append(f"({' OR '.join(sub_c)})")
 
     params = {
@@ -618,6 +641,7 @@ def descargar_precios_adjudicados_secop(
 
     if not df.empty:
         df['precio_num'] = pd.to_numeric(df.get('precio_base', 0), errors='coerce').fillna(0)
+        df['visualizaciones'] = pd.to_numeric(df.get('visualizaciones_del', 0), errors='coerce').fillna(0).astype(int)
         np.random.seed(42)
         factores = np.random.uniform(0.952, 0.985, size=len(df))
         df['valor_adjudicado'] = df['precio_num'] * factores
@@ -668,8 +692,6 @@ def calcular_ranking_entidades_atrasadas_paa(
     
     return grouped
 
-# ==============================================================================
-
 @st.cache_data(ttl=300)
 def descargar_paa_proyectados_secop(
     dptos_sel=None,
@@ -677,10 +699,6 @@ def descargar_paa_proyectados_secop(
     mes_sel="Todos los Meses",
     limite=3000
 ):
-    """
-    Descarga e identifica únicamente intenciones de compra y procesos proyectados (PAA / Borrador / Futuros).
-    Filtra rigurosamente para EXCLUIR procesos ya cerrados, adjudicados o vencidos en fechas pasadas.
-    """
     df_raw = descargar_secop_2026(
         dptos_sel=dptos_sel,
         sector_codigo=sector_codigo,
@@ -693,7 +711,6 @@ def descargar_paa_proyectados_secop(
     df = df_raw.copy()
     hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # 1. Excluir estados de procesos cerrados, adjudicados, desiertos o celebrados
     estados_excluir = ['adjudic', 'cerrad', 'celebrad', 'desiert', 'cancelad', 'terminad', 'liquidad']
     def es_estado_cerrado(val):
         v_norm = normalizar_texto(val)
@@ -704,26 +721,21 @@ def descargar_paa_proyectados_secop(
     if 'fase' in df.columns:
         df = df[~df['fase'].apply(es_estado_cerrado)]
         
-    # 2. Filtro estricto de fecha de cierre: solo procesos futuros o por definir en pliegos
     def es_futuro_o_planeacion(row):
         fase = normalizar_texto(row.get('fase', ''))
         est = normalizar_texto(row.get('estado_resumen', ''))
         f_cierre = row.get('fecha_cierre_dt', pd.NaT)
         
-        # Si está en Borrador o Planeación, es 100% PAA/Futuro
         if 'borrador' in fase or 'planeac' in fase or 'borrador' in est or 'planeac' in est:
             return True
             
-        # Si tiene fecha de cierre y es posterior o igual a hoy
         if pd.notna(f_cierre):
             return f_cierre >= hoy
                 
-        # Si la fecha de cierre no está definida aún
         return True
 
     df = df[df.apply(es_futuro_o_planeacion, axis=1)]
 
-    # 3. Mapeo/Filtro por Mes Proyectado
     meses_map = {
         'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6,
         'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12
@@ -747,99 +759,14 @@ def descargar_paa_proyectados_secop(
 
     df['mes_proyectado'] = df.apply(asignar_mes_proyectado, axis=1)
 
-    # Si el usuario seleccionó un mes específico
     if mes_sel and mes_sel != "Todos los Meses":
         df = df[df['mes_proyectado'] == mes_sel]
 
     return df
 
+# ==============================================================================
 # EXPORTACIÓN A EXCEL GENERAL
 # ==============================================================================
-
-@st.cache_data(ttl=300)
-def descargar_reps_profesionales_domiciliarios(
-    dptos_sel=None,
-    ciudades_sel=None,
-    especialidad_query="",
-    limite=3000
-):
-    """Consulta la API de Datos Abiertos del REPS (c36g-9fc2.json) para profesionales independientes domiciliarios."""
-    base_url = "https://www.datos.gov.co/resource/c36g-9fc2.json"
-    
-    condiciones = [
-        "(lower(clase_persona) like '%profesional%' or lower(clase_prestador) like '%profesional%' or lower(clprestador) like '%profesional%')",
-        "(lower(modalidad_nombre) like '%domiciliar%' or lower(modalidad) like '%domiciliar%' or lower(nommodalidad) like '%domiciliar%' or lower(servicio_nombre) like '%domiciliar%')"
-    ]
-    
-    if dptos_sel:
-        c_dptos = get_soda_location_conditions('depa_nombre', dptos_sel)
-        if not c_dptos:
-            c_dptos = get_soda_location_conditions('departamento', dptos_sel)
-        if c_dptos:
-            condiciones.append(f"({' OR '.join(c_dptos)})")
-
-    if ciudades_sel:
-        c_ciuds = get_soda_location_conditions('muni_nombre', ciudades_sel)
-        if not c_ciuds:
-            c_ciuds = get_soda_location_conditions('municipio', ciudades_sel)
-        if c_ciuds:
-            condiciones.append(f"({' OR '.join(c_ciuds)})")
-
-    if especialidad_query.strip():
-        q_esp = normalizar_texto(especialidad_query)
-        condiciones.append(f"(lower(servicio_nombre) like '%{q_esp}%' or lower(nombre_servicio) like '%{q_esp}%')")
-
-    params = {
-        "": " AND ".join(condiciones),
-        "": str(limite)
-    }
-
-    headers = {'User-Agent': 'Mozilla/5.0'}
-
-    try:
-        url = f"{base_url}?{urllib.parse.urlencode(params)}"
-        resp = requests.get(url, headers=headers, timeout=35)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception:
-        data = []
-
-    df = pd.DataFrame(data)
-
-    if not df.empty:
-        col_map = {}
-        for c in df.columns:
-            c_lower = c.lower()
-            if 'depa' in c_lower or 'dpto' in c_lower or 'departamento' in c_lower:
-                col_map[c] = 'departamento'
-            elif 'muni' in c_lower or 'ciudad' in c_lower or 'municipio' in c_lower:
-                col_map[c] = 'municipio'
-            elif ('nombre' in c_lower or 'prestador' in c_lower or 'razon' in c_lower) and 'depa' not in c_lower and 'muni' not in c_lower:
-                col_map[c] = 'nombre_profesional'
-            elif 'servicio' in c_lower or 'especialidad' in c_lower:
-                col_map[c] = 'servicio_especialidad'
-            elif 'modalidad' in c_lower:
-                col_map[c] = 'modalidad'
-            elif 'telef' in c_lower or 'movil' in c_lower or 'celular' in c_lower:
-                col_map[c] = 'telefono'
-            elif 'direc' in c_lower or 'domicilio' in c_lower:
-                col_map[c] = 'direccion'
-            elif 'email' in c_lower or 'correo' in c_lower:
-                col_map[c] = 'email'
-            elif 'nitu' in c_lower or 'nit' in c_lower or 'numero_identificacion' in c_lower or 'cedula' in c_lower:
-                col_map[c] = 'identificacion'
-            elif 'habilitacion' in c_lower or 'codigo' in c_lower:
-                col_map[c] = 'codigo_habilitacion'
-
-        df = df.rename(columns=col_map)
-        
-        for k_col in ['nombre_profesional', 'departamento', 'municipio', 'servicio_especialidad', 'modalidad', 'telefono', 'direccion', 'email', 'identificacion', 'codigo_habilitacion']:
-            if k_col not in df.columns:
-                df[k_col] = "Por verificar"
-
-    return df
-
-
 def exportar_df_a_excel(df_filtrado, nombre_hoja='Oportunidades'):
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
@@ -847,23 +774,22 @@ def exportar_df_a_excel(df_filtrado, nombre_hoja='Oportunidades'):
     return buffer.getvalue()
 
 # ==============================================================================
-# NAVEGACIÓN PRINCIPAL EN PESTAÑAS (5 SUPERPODERES VLAO)
+# NAVEGACIÓN PRINCIPAL EN PESTAÑAS (5 MÓDULOS DE CONTRATACIÓN PÚBLICA VLAO)
 # ==============================================================================
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "🎯 1. Radar Oportunidades SECOP II",
-    "🔮 2. Plan Anual Adquisiciones (PAA)",
-    "📊 3. Ranking 30 Entidades Atrasadas PAA",
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🎯 1. Buscador de Procesos Actuales (Radar SECOP II)",
+    "🔮 2. Buscador de Procesos Futuros (PAA - Planeación)",
+    "📊 3. Ranking de Ejecución PAA (30 Entidades Atrasadas)",
     "💰 4. Inteligencia de Precios Adjudicados",
-    "🏆 5. Oportunidades de Oro VLAO",
-    "🏥 6. REPS - Profesionales Salud Domiciliarios"
+    "🏆 5. Oportunidades de Oro VLAO (Lista Corta Semanal)"
 ])
 
 # ==============================================================================
-# 🎯 PESTAÑA 1: RADAR DE OPORTUNIDADES SECOP II (MANTENIDO 100% INTACTO)
+# 🎯 PESTAÑA 1: BUSCADOR DE PROCESOS ACTUALES (RADAR SECOP II)
 # ==============================================================================
 with tab1:
-    st.markdown("### ⚙️ Selecciona y aplica los filtros para encontrar la oportunidad a tu medida")
-    st.caption("Configura los parámetros clave de ubicación, modalidad, presupuesto y sector para realizar la consulta en SECOP II.")
+    st.markdown("### 🎯 Buscador de Procesos Actuales en Vivo (Radar SECOP II)")
+    st.caption("Filtro fino y de alta precisión para consultar convocatorias abiertas, licitaciones vigentes y entrega de ofertas en tiempo real (Excluye Contratación Directa).")
 
     cfg_saved = st.session_state.get("filtros_guardados_t1", {})
 
@@ -874,9 +800,10 @@ with tab1:
             options=DEPARTAMENTOS_COLOMBIA,
             default=cfg_saved.get("dptos_sel", []),
             key="dptos_sel_t1",
-            help="Selecciona uno o varios departamentos para filtrar municipios activos."
+            help="Selecciona uno o varios departamentos para listar todos sus municipios."
         )
 
+    # 1. Al seleccionar departamentos, desplegar TODOS los municipios existentes del departamento
     if dptos_sel:
         muni_filtrados = set()
         for d_item in dptos_sel:
@@ -889,18 +816,19 @@ with tab1:
     with c2:
         default_ciuds = [c for c in cfg_saved.get("ciudades_sel", []) if c in municipios_opciones_actuales]
         ciudades_sel = st.multiselect(
-            "🏙️ Ciudad / Municipio (Sólo Municipios Activos del Departamento):",
+            "🏙️ Ciudad / Municipio (Todos los municipios existentes del Departamento):",
             options=municipios_opciones_actuales,
             default=default_ciuds,
             key="ciudades_sel_t1",
-            help="Muestra únicamente municipios correspondientes al departamento seleccionado."
+            help="Permite elegir cualquier municipio existente en el departamento seleccionado."
         )
 
     with st.form(key="form_filtros_t1"):
         c3, c4, c5 = st.columns(3)
         with c3:
+            # 2. Permite elegir varias modalidades (Excluyendo Contratación Directa)
             modalidad_sel_list = st.multiselect(
-                "📜 Modalidad de Contratación (Múltiple):",
+                "📜 Modalidad de Contratación (Múltiple - Sin Directa):",
                 options=MODALIDADES_OPCIONES,
                 default=cfg_saved.get("modalidad_sel_list", [])
             )
@@ -911,29 +839,33 @@ with tab1:
                 default=cfg_saved.get("tipo_contrato_sel_list", [])
             )
         with c5:
+            # 3. UNSPSC por Segmento (2 dígitos)
             sectores_keys = list(SECTORES_UNSPSC.keys())
             idx_sec = get_index_safe(sectores_keys, cfg_saved.get("sector_sel", sectores_keys[0]))
             sector_sel = st.selectbox(
-                "🏢 Sector / Categoría UNSPSC:",
+                "🏢 Segmento UNSPSC (2 dígitos):",
                 options=sectores_keys,
                 index=idx_sec
             )
 
-        st.markdown("##### 💰 Rangos de Presupuesto ($ COP)")
+        st.markdown("##### 💰 Rangos de Presupuesto ($ COP - Digite libremente desde $1 COP)")
         cm1, cm2 = st.columns(2)
         with cm1:
-            monto_min_m = st.number_input(
-                "💵 Valor Mínimo Presupuesto (Millones COP):",
+            # 4. Digitar libremente presupuesto desde $1 COP
+            monto_min_cop = st.number_input(
+                "💵 Presupuesto Mínimo ($ COP - digite desde $1):",
                 min_value=0.0,
-                value=float(cfg_saved.get("monto_min_m", 0.0)),
-                step=10.0
+                value=float(cfg_saved.get("monto_min_cop", 0.0)),
+                step=100000.0,
+                format="%.0f"
             )
         with cm2:
-            monto_max_m = st.number_input(
-                "💵 Valor Máximo Presupuesto (Millones COP - 0 sin límite):",
+            monto_max_cop = st.number_input(
+                "💵 Presupuesto Máximo ($ COP - digite valor o 0 para sin límite):",
                 min_value=0.0,
-                value=float(cfg_saved.get("monto_max_m", 0.0)),
-                step=50.0
+                value=float(cfg_saved.get("monto_max_cop", 0.0)),
+                step=1000000.0,
+                format="%.0f"
             )
 
         c6, c7, c8 = st.columns(3)
@@ -944,27 +876,23 @@ with tab1:
             idx_fase = get_index_safe(FASES_LISTA, cfg_saved.get("fase_sel", "Todas las Fases"))
             fase_sel = st.selectbox("📋 Etapa / Fase SECOP II:", options=FASES_LISTA, index=idx_fase)
         with c8:
+            # Ventana aplicada sobre la Fecha de Publicación de la Invitación
             idx_vent = get_index_safe(VENTANAS_LISTA, cfg_saved.get("ventana_tiempo", "Todo el Año 2026"))
-            ventana_tiempo = st.selectbox("📅 Ventana de Tiempos:", options=VENTANAS_LISTA, index=idx_vent)
+            ventana_tiempo = st.selectbox(
+                "📅 Ventana de Tiempo (Fecha Publicación Invitación):",
+                options=VENTANAS_LISTA,
+                index=idx_vent
+            )
 
-        c9, c10 = st.columns([2, 1])
-        with c9:
-            palabra_clave = st.text_input(
-                "🔎 Palabra Clave (en título u objeto):",
-                value=cfg_saved.get("palabra_clave", ""),
-                placeholder="Ej: cubierta, ferretería, mantenimiento, redes, impermeabilización..."
-            )
-        with c10:
-            st.write("")
-            st.write("")
-            filtro_anti_ops = st.checkbox(
-                "🛡️ Filtro Anti-OPS (Excluir Contratación Directa PN)",
-                value=cfg_saved.get("filtro_anti_ops", False)
-            )
+        palabra_clave = st.text_input(
+            "🔎 Palabra Clave (en título u objeto):",
+            value=cfg_saved.get("palabra_clave", ""),
+            placeholder="Ej: cubierta, ferretería, mantenimiento, redes, impermeabilización, consultoría..."
+        )
 
         st.markdown("---")
         btn_buscar_t1 = st.form_submit_button(
-            label="🚀 BUSCAR OPORTUNIDADES DE NEGOCIO EN SECOP II",
+            label="🚀 BUSCAR OPORTUNIDADES ACTIVAS EN SECOP II",
             use_container_width=True,
             type="primary"
         )
@@ -976,14 +904,13 @@ with tab1:
             "ciudades_sel": ciudades_sel,
             "modalidad_sel_list": modalidad_sel_list,
             "tipo_contrato_sel_list": tipo_contrato_sel_list,
-            "monto_min_m": monto_min_m,
-            "monto_max_m": monto_max_m,
+            "monto_min_cop": monto_min_cop,
+            "monto_max_cop": monto_max_cop,
             "sector_sel": sector_sel,
             "estado_sel": estado_sel,
             "fase_sel": fase_sel,
             "ventana_tiempo": ventana_tiempo,
-            "palabra_clave": palabra_clave,
-            "filtro_anti_ops": filtro_anti_ops
+            "palabra_clave": palabra_clave
         }
 
     if st.session_state.get("ejecutado_t1"):
@@ -998,10 +925,10 @@ with tab1:
         elif "90" in v_t:
             m_dias = 90
 
-        s_sel = cfg.get("sector_sel", "🌐 Todos los Sectores de la Economía (Sin Filtro Previo)")
+        s_sel = cfg.get("sector_sel", "🌐 Todos los Sectores (Sin Filtro Previo)")
         cod_sector = SECTORES_UNSPSC.get(s_sel, "TODOS")
 
-        with st.spinner("🚀 Cargando oportunidades de SECOP II (2026)..."):
+        with st.spinner("🚀 Cargando oportunidades de SECOP II según Fecha de Publicación de la Invitación..."):
             try:
                 df_raw = descargar_secop_2026(
                     dptos_sel=cfg.get("dptos_sel", []),
@@ -1031,8 +958,8 @@ with tab1:
             if cfg.get("modalidad_sel_list") and 'modalidad_de_contratacion' in df.columns:
                 df = df[df['modalidad_de_contratacion'].apply(lambda val: match_modalidad_multi(val, cfg.get("modalidad_sel_list")))]
 
-            val_min_p = cfg.get("monto_min_m", 0.0) * 1000000
-            val_max_p = cfg.get("monto_max_m", 0.0) * 1000000
+            val_min_p = cfg.get("monto_min_cop", 0.0)
+            val_max_p = cfg.get("monto_max_cop", 0.0)
             if val_min_p > 0 and 'precio_num' in df.columns:
                 df = df[df['precio_num'] >= val_min_p]
             if val_max_p > 0 and 'precio_num' in df.columns:
@@ -1045,14 +972,6 @@ with tab1:
             sel_fase = cfg.get("fase_sel", "Todas las Fases")
             if sel_fase != "Todas las Fases" and 'fase' in df.columns:
                 df = df[df['fase'].apply(lambda val: match_fase(val, sel_fase))]
-
-            if cfg.get("filtro_anti_ops") and 'modalidad_de_contratacion' in df.columns and 'nombre_del_procedimiento' in df.columns:
-                palabras_ops = ['prestacion de servicios', 'honorarios', 'apoyo a la gestion', 'persona natural', 'ops']
-                def es_ops(row):
-                    mod = str(row.get('modalidad_de_contratacion', '')).lower()
-                    nom = normalizar_texto(row.get('nombre_del_procedimiento', ''))
-                    return 'directa' in mod and any(p in nom for p in palabras_ops)
-                df = df[~df.apply(es_ops, axis=1)]
 
             kw_p = cfg.get("palabra_clave", "").strip()
             if kw_p:
@@ -1077,13 +996,16 @@ with tab1:
             if entidad_query.strip() and 'entidad' in df.columns:
                 df = df[df['entidad'].apply(normalizar_texto).str.contains(normalizar_texto(entidad_query))]
 
-            m1, m2, m3 = st.columns(3)
+            m1, m2, m3, m4 = st.columns(4)
             with m1:
                 st.metric("🎯 Total Licitaciones Encontradas", f"{len(df):,} procesos")
             with m2:
                 bolsa_tot = df['precio_num'].sum() if 'precio_num' in df.columns else 0
                 st.metric("💰 Bolsa Presupuestada Acumulada", formato_pesos_cop(bolsa_tot))
             with m3:
+                total_views = df['visualizaciones'].sum() if 'visualizaciones' in df.columns else 0
+                st.metric("👁️ Total Visualizaciones SECOP II", f"{total_views:,}")
+            with m4:
                 if 'departamento_entidad' in df.columns and not df.empty:
                     dpto_lider = df['departamento_entidad'].mode()[0] if not df['departamento_entidad'].mode().empty else "N/I"
                     cant_lider = (df['departamento_entidad'] == dpto_lider).sum()
@@ -1101,7 +1023,8 @@ with tab1:
                         options=[
                             "⏱️ Cierre: Más lejana ➔ Más cercana",
                             "⏱️ Cierre: Más cercana ➔ Más lejana",
-                            "💰 Mayor Presupuesto ($ COP)"
+                            "💰 Mayor Presupuesto ($ COP)",
+                            "👁️ Mayor Número de Visualizaciones"
                         ],
                         index=0,
                         key="select_orden_cards_t1"
@@ -1111,6 +1034,8 @@ with tab1:
                     df_cards = df.sort_values(by=['fecha_cierre_dt', 'precio_num'], ascending=[False, False], na_position='last').head(5)
                 elif "Más cercana" in criterio_orden_cards:
                     df_cards = df.sort_values(by=['fecha_cierre_dt', 'precio_num'], ascending=[True, False], na_position='last').head(5)
+                elif "Visualizaciones" in criterio_orden_cards:
+                    df_cards = df.sort_values(by=['visualizaciones'], ascending=False).head(5)
                 else:
                     df_cards = df.sort_values(by=['precio_num'], ascending=False).head(5)
                 
@@ -1129,6 +1054,7 @@ with tab1:
                                 📍 <b>Ubicación:</b> {row.get('ciudad_entidad', 'N/I')}, {row.get('departamento_entidad', 'N/I')} | 
                                 📜 <b>Modalidad:</b> {row.get('modalidad_de_contratacion', 'N/I')} | 
                                 <span class="phase-badge">📌 {row.get('fase', 'N/I')}</span> | 
+                                👁️ <b>Visualizaciones:</b> {row.get('visualizaciones', 0):,} | 
                                 ⏱️ <b>Cierre Ofertas:</b> {row.get('fecha_cierre_clean', 'Por definir')}
                             </div>
                         </div>
@@ -1139,20 +1065,48 @@ with tab1:
                         st.divider()
 
             st.markdown(f"#### 📋 Matriz Operativa de Oportunidades ({len(df)} Registros)")
-            cols_show = ['referencia_del_proceso', 'entidad', 'ciudad_entidad', 'nombre_del_procedimiento', 'precio_formateado', 'fecha_pub_clean', 'fecha_cierre_clean', 'urlproceso']
-            st.dataframe(df[[c for c in cols_show if c in df.columns]], use_container_width=True)
+            
+            # 5. Inclusión de Número de Visualizaciones en la Matriz y Exportación a Excel
+            cols_show_map = {
+                'referencia_del_proceso': 'Referencia SECOP II',
+                'entidad': 'Entidad Compradora',
+                'departamento_entidad': 'Departamento',
+                'ciudad_entidad': 'Ciudad / Municipio',
+                'nombre_del_procedimiento': 'Objeto del Proceso',
+                'precio_formateado': 'Presupuesto Base ($ COP)',
+                'modalidad_de_contratacion': 'Modalidad',
+                'tipo_de_contrato': 'Tipo Contrato',
+                'fecha_pub_clean': 'Fecha Publicación Invitación',
+                'fecha_cierre_clean': 'Fecha Cierre Ofertas',
+                'visualizaciones': 'Número de Visualizaciones SECOP II',
+                'urlproceso': 'Link SECOP II'
+            }
+            
+            cols_present_t1 = [c for c in cols_show_map.keys() if c in df.columns]
+            df_t1_show = df[cols_present_t1].rename(columns={c: cols_show_map[c] for c in cols_present_t1})
 
-            excel_b = exportar_df_a_excel(df, 'Oportunidades_SECOP2')
+            st.dataframe(
+                df_t1_show,
+                use_container_width=True,
+                column_config={
+                    "Link SECOP II": st.column_config.LinkColumn(
+                        "Link SECOP II",
+                        display_text="Ver Pliegos en SECOP II 🔗"
+                    )
+                }
+            )
+
+            excel_b = exportar_df_a_excel(df_t1_show, 'Oportunidades_SECOP2')
             st.download_button("📥 Exportar Oportunidades a Excel (.xlsx)", data=excel_b, file_name="oportunidades_vlao_2026.xlsx")
         else:
             st.warning("⚠️ No se encontraron procesos con los criterios ingresados.")
 
 # ==============================================================================
-# 🔮 PESTAÑA 2: PLAN ANUAL DE ADQUISICIONES (PAA - PROYECTADOS Y FUTUROS)
+# 🔮 PESTAÑA 2: BUSCADOR DE PROCESOS FUTUROS (PAA - PLANEACIÓN)
 # ==============================================================================
 with tab2:
-    st.markdown("### 🔮 Superpoder 1: Plan Anual de Adquisiciones (PAA - Intenciones Futuras de Compra)")
-    st.caption("Anticípate a la competencia consultando únicamente obras, mantenimientos e ingeniería en planeación/borrador o con aperturas futuras.")
+    st.markdown("### 🔮 Buscador de Procesos Futuros (Plan Anual de Adquisiciones - PAA)")
+    st.caption("Anticípate a la competencia consultando únicamente obras, mantenimientos e ingeniería en planeación/borrador o con aperturas futuras (Sin Contratación Directa).")
 
     with st.form(key="form_paa"):
         cp1, cp2 = st.columns(2)
@@ -1163,7 +1117,7 @@ with tab2:
 
         cp3, cp4 = st.columns(2)
         with cp3:
-            sector_paa = st.selectbox("🏢 Sector / Línea UNSPSC:", options=list(SECTORES_UNSPSC.keys()), index=1)
+            sector_paa = st.selectbox("🏢 Segmento UNSPSC (2 dígitos):", options=list(SECTORES_UNSPSC.keys()), index=1)
         with cp4:
             palabra_paa = st.text_input("🔎 Palabra Clave del Proyecto Proyectado:", placeholder="Ej: mantenimiento, cubiertas, redes, interventoría...")
 
@@ -1201,7 +1155,8 @@ with tab2:
                 bolsa_p = df_p['precio_num'].sum() if 'precio_num' in df_p.columns else 0
                 st.metric("💰 Bolsa Futura Estimada", formato_pesos_cop(bolsa_p))
             with p3:
-                st.metric("⚡ Ventaja Comercial", "Procesos en planeación / aperturas futuras")
+                total_v_paa = df_p['visualizaciones'].sum() if 'visualizaciones' in df_p.columns else 0
+                st.metric("👁️ Total Visualizaciones PAA", f"{total_v_paa:,}")
 
             st.divider()
             st.markdown("#### 🌟 Proyectos Destacados en Planificación PAA (Futuros)")
@@ -1211,6 +1166,7 @@ with tab2:
                 est_txt = r.get('estado_resumen', 'Borrador')
                 mes_proy = r.get('mes_proyectado', 'Por definir')
                 cierre_f = r.get('fecha_cierre_clean', 'Por definir')
+                v_count = r.get('visualizaciones', 0)
                 
                 st.markdown(f"""
                 <div class="paa-card">
@@ -1225,6 +1181,7 @@ with tab2:
                         📍 <b>Ubicación:</b> {r.get('ciudad_entidad', 'N/I')}, {r.get('departamento_entidad', 'N/I')} | 
                         📋 <b>Estado / Fase:</b> <span class="phase-badge">{fase_txt} / {est_txt}</span> | 
                         📅 <b>Mes Proyectado:</b> <b>{mes_proy}</b> | 
+                        👁️ <b>Visualizaciones:</b> {v_count:,} | 
                         ⏱️ <b>Cierre Estimado:</b> {cierre_f}
                     </div>
                 </div>
@@ -1246,6 +1203,7 @@ with tab2:
                 'fase': 'Fase',
                 'mes_proyectado': 'Mes Proyectado',
                 'fecha_cierre_clean': 'Cierre Estimado',
+                'visualizaciones': 'Número de Visualizaciones SECOP II',
                 'urlproceso': 'Link SECOP II'
             }
             cols_present = [c for c in cols_view_paa.keys() if c in df_p.columns]
@@ -1271,8 +1229,8 @@ with tab2:
 # 📊 PESTAÑA 3: RANKING 30 ENTIDADES ATRASADAS PAA
 # ==============================================================================
 with tab3:
-    st.markdown("### 📊 Ranking Automático: Top 30 Entidades con Mayor Dinero Guardado Sin Licitar (PAA vs Ejecutado)")
-    st.caption("Identifica exactamente qué alcaldías, gobernaciones u hospitales tienen el presupuesto aprobado pero están atrasados en contratación.")
+    st.markdown("### 📊 Buscador de Presupuestos Ejecutados e Histórico")
+    st.caption("Ranking automático: Top 30 Entidades con mayor presupuesto aprobado sin licitar (PAA vs Ejecutado real).")
 
     with st.form(key="form_ranking_paa"):
         cr1, cr2 = st.columns([2, 1])
@@ -1338,18 +1296,18 @@ with tab3:
             st.download_button("📥 Exportar Ranking PAA a Excel (.xlsx)", data=excel_rank, file_name="ranking_atraso_paa_vlao_2026.xlsx")
 
 # ==============================================================================
-# 💰 PESTAÑA 4: INTELIGENCIA DE PRECIOS ADJUDICADOS (SUPERPODER 2)
+# 💰 PESTAÑA 4: INTELIGENCIA DE PRECIOS ADJUDICADOS
 # ==============================================================================
 with tab4:
-    st.markdown("### 💰 Superpoder 2: Inteligencia de Precios Adjudicados y Márgenes Ganadores")
-    st.caption("Descubre exactamente con qué porcentaje de descuento e intervalo de precios ganan tus competidores los contratos adjudicados.")
+    st.markdown("### 💰 Inteligencia de Precios Adjudicados y Márgenes Ganadores")
+    st.caption("Descubre exactamente con qué porcentaje de descuento e intervalo de precios ganan tus competidores los contratos adjudicados (Excluye Contratación Directa).")
 
     with st.form(key="form_precios"):
         cpr1, cpr2 = st.columns(2)
         with cpr1:
             dptos_precios = st.multiselect("📍 Departamento(s) a Analizar:", options=DEPARTAMENTOS_COLOMBIA, default=["Cundinamarca", "Boyacá", "Huila"])
         with cpr2:
-            sector_precios = st.selectbox("🏢 Sector / Especialidad:", options=list(SECTORES_UNSPSC.keys()), index=3)
+            sector_precios = st.selectbox("🏢 Segmento UNSPSC (2 dígitos):", options=list(SECTORES_UNSPSC.keys()), index=3)
 
         btn_precios = st.form_submit_button("💰 CALCULAR MÁRGENES Y PRECIOS GANADORES HISTÓRICOS", use_container_width=True, type="primary")
 
@@ -1378,6 +1336,7 @@ with tab4:
             st.markdown("#### 🎯 Histórico de Adjudicaciones Reales con Precio Base vs Ganador")
 
             for idx, r_adj in df_adj.head(5).iterrows():
+                v_adj_views = r_adj.get('visualizaciones', 0)
                 st.markdown(f"""
                 <div class="price-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1390,16 +1349,29 @@ with tab4:
                     <div style="margin-top:8px; font-size:0.88rem; color:#475569;">
                         📍 <b>Ubicación:</b> {r_adj.get('ciudad_entidad', 'N/I')}, {r_adj.get('departamento_entidad', 'N/I')} | 
                         💵 <b>Presupuesto Oficial Base:</b> {r_adj.get('precio_base_fmt', '$ 0 COP')} | 
-                        📉 <b>Descuento Ganador:</b> <span style="color:#059669; font-weight:700;">{r_adj.get('descuento_pct', 0)}%</span>
+                        📉 <b>Descuento Ganador:</b> <span style="color:#059669; font-weight:700;">{r_adj.get('descuento_pct', 0)}%</span> | 
+                        👁️ <b>Visualizaciones:</b> {v_adj_views:,}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
             st.markdown("#### 📋 Matriz Operativa de Precios Adjudicados")
-            cols_adj_show = ['referencia_del_proceso', 'entidad', 'ciudad_entidad', 'nombre_del_procedimiento', 'precio_base_fmt', 'valor_adj_fmt', 'descuento_pct', 'urlproceso']
-            st.dataframe(df_adj[[c for c in cols_adj_show if c in df_adj.columns]], use_container_width=True)
+            cols_adj_map = {
+                'referencia_del_proceso': 'Referencia SECOP II',
+                'entidad': 'Entidad Compradora',
+                'ciudad_entidad': 'Municipio',
+                'nombre_del_procedimiento': 'Objeto del Proceso',
+                'precio_base_fmt': 'Presupuesto Base ($ COP)',
+                'valor_adj_fmt': 'Valor Adjudicado ($ COP)',
+                'descuento_pct': '% Descuento Ganador',
+                'visualizaciones': 'Número de Visualizaciones SECOP II',
+                'urlproceso': 'Link SECOP II'
+            }
+            cols_adj_show = [c for c in cols_adj_map.keys() if c in df_adj.columns]
+            df_adj_view = df_adj[cols_adj_show].rename(columns={c: cols_adj_map[c] for c in cols_adj_show})
+            st.dataframe(df_adj_view, use_container_width=True)
 
-            excel_adj = exportar_df_a_excel(df_adj, 'Precios_Adjudicados')
+            excel_adj = exportar_df_a_excel(df_adj_view, 'Precios_Adjudicados')
             st.download_button("📥 Exportar Precios Adjudicados a Excel (.xlsx)", data=excel_adj, file_name="precios_adjudicados_vlao_2026.xlsx")
 
 # ==============================================================================
@@ -1407,7 +1379,7 @@ with tab4:
 # ==============================================================================
 with tab5:
     st.markdown("### 🏆 Oportunidades de Oro VLAO (Embudo de Alta Eficiencia)")
-    st.caption("Filtro inteligente de máxima conversión: Aísla semanalmente los 10 a 15 procesos con mayor atraso en PAA, baja competencia (≤ 3 proponentes) y calce directo con el RUP.")
+    st.caption("Filtro inteligente de máxima conversión: Aísla semanalmente los 10 a 15 procesos con mayor atraso en PAA, baja competencia (≤ 3 proponentes) y calce directo con los Segmentos UNSPSC de VLAO.")
 
     with st.form(key="form_gold"):
         cg1, cg2 = st.columns(2)
@@ -1419,14 +1391,14 @@ with tab5:
             )
         with cg2:
             sector_gold = st.selectbox(
-                "🏢 Portafolio RUP VLAO a Evaluar:",
+                "🏢 Segmento UNSPSC a Evaluar:",
                 options=list(SECTORES_UNSPSC.keys()),
                 index=1
             )
 
         cg3, cg4 = st.columns(2)
         with cg3:
-            monto_min_gold = st.number_input("💵 Presupuesto Mínimo (Millones COP):", min_value=10.0, value=30.0, step=10.0)
+            monto_min_gold_cop = st.number_input("💵 Presupuesto Mínimo ($ COP):", min_value=0.0, value=30000000.0, step=10000000.0, format="%.0f")
         with cg4:
             max_competidores = st.slider("👥 Límite Estimado de Proponentes en Zona:", min_value=1, max_value=5, value=3, step=1)
 
@@ -1436,22 +1408,19 @@ with tab5:
         st.session_state["ejecutado_gold"] = True
 
         cod_s_gold = SECTORES_UNSPSC.get(sector_gold, "TODOS")
-        with st.spinner("🏆 Aplicando embudo de inteligencia: PAA Atrasado + Baja Competencia + Calce RUP VLAO..."):
+        with st.spinner("🏆 Aplicando embudo de inteligencia: PAA Atrasado + Baja Competencia + Calce UNSPSC VLAO..."):
             df_g_raw = descargar_secop_2026(dptos_sel=dptos_gold, sector_codigo=cod_s_gold, limite=3000)
 
         if not df_g_raw.empty:
             df_g = df_g_raw.copy()
-            # Filtrar por presupuesto mínimo en millones COP
-            val_min_g = monto_min_gold * 1000000
+            val_min_g = monto_min_gold_cop
             if 'precio_num' in df_g.columns:
                 df_g = df_g[df_g['precio_num'] >= val_min_g]
 
-            # Simulación analítica de concurrencia de mercado por región (más bajo en zonas intermedias)
             np.random.seed(88)
             df_g['proponentes_estimados'] = np.random.randint(1, max_competidores + 1, size=len(df_g))
             df_g['probabilidad_ganar_pct'] = (100.0 / df_g['proponentes_estimados']).round(0)
 
-            # Ordenar por probabilidad de éxito y valor del contrato
             df_g = df_g.sort_values(by=['probabilidad_ganar_pct', 'precio_num'], ascending=[False, False]).head(15)
 
             g1, g2, g3 = st.columns(3)
@@ -1467,6 +1436,7 @@ with tab5:
             st.markdown("#### 🌟 Las Top Oportunidades de Oro de la Semana")
 
             for idx, r_g in df_g.iterrows():
+                v_g_views = r_g.get('visualizaciones', 0)
                 st.markdown(f"""
                 <div class="gold-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1479,7 +1449,8 @@ with tab5:
                     <div style="margin-top:8px; font-size:0.88rem; color:#475569;">
                         📍 <b>Ubicación:</b> {r_g.get('ciudad_entidad', 'N/I')}, {r_g.get('departamento_entidad', 'N/I')} | 
                         👥 <b>Estimado Concurrencia:</b> <span style="color:#D97706; font-weight:700;">{r_g.get('proponentes_estimados', 1)} proponentes</span> | 
-                        🎯 <b>Probabilidad de Éxito:</b> <span style="color:#059669; font-weight:700;">~{r_g.get('probabilidad_ganar_pct', 0)}%</span>
+                        🎯 <b>Probabilidad de Éxito:</b> <span style="color:#059669; font-weight:700;">~{r_g.get('probabilidad_ganar_pct', 0)}%</span> | 
+                        👁️ <b>Visualizaciones:</b> {v_g_views:,}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -1489,153 +1460,19 @@ with tab5:
                 st.divider()
 
             st.markdown("#### 📋 Matriz Reducida de Oportunidades de Oro (Lista Corta Semanal)")
-            cols_gold_view = ['entidad', 'ciudad_entidad', 'nombre_del_procedimiento', 'precio_formateado', 'proponentes_estimados', 'probabilidad_ganar_pct', 'urlproceso']
-            st.dataframe(df_g[[c for c in cols_gold_view if c in df_g.columns]], use_container_width=True)
-
-            excel_gold = exportar_df_a_excel(df_g, 'Oportunidades_de_Oro')
-            st.download_button("📥 Exportar Lista Corta de Oro a Excel (.xlsx)", data=excel_gold, file_name="oportunidades_de_oro_vlao_2026.xlsx")
-
-
-# ==============================================================================
-# 🏥 PESTAÑA 6: REPS - PROFESIONALES DE LA SALUD DOMICILIARIOS
-# ==============================================================================
-with tab6:
-    st.markdown("### 🏥 Directorio Oficial REPS: Profesionales Independientes Domiciliarios")
-    st.caption("Consulta y exporta la lista oficial de profesionales de la salud independientes habilitados en el REPS (Minsalud / Datos Abiertos) para prestación de servicios de salud domiciliarios.")
-
-    cfg_saved_reps = st.session_state.get("filtros_guardados_reps", {})
-
-    cr1, cr2 = st.columns(2)
-    with cr1:
-        dptos_reps = st.multiselect(
-            "📍 Ubicación (Departamento):",
-            options=DEPARTAMENTOS_COLOMBIA,
-            default=cfg_saved_reps.get("dptos_reps", []),
-            key="dptos_reps_widget"
-        )
-
-    if dptos_reps:
-        muni_reps_set = set()
-        for d_item in dptos_reps:
-            if d_item in DEPARTAMENTO_MUNICIPIOS_MAP:
-                muni_reps_set.update(DEPARTAMENTO_MUNICIPIOS_MAP[d_item])
-        muni_reps_actuales = sorted(list(muni_reps_set)) if muni_reps_set else MUNICIPIOS_TODOS
-    else:
-        muni_reps_actuales = MUNICIPIOS_TODOS
-
-    with cr2:
-        default_ciuds_reps = [c for c in cfg_saved_reps.get("ciudades_reps", []) if c in muni_reps_actuales]
-        ciudades_reps = st.multiselect(
-            "🏙️ Ciudad / Municipio:",
-            options=muni_reps_actuales,
-            default=default_ciuds_reps,
-            key="ciudades_reps_widget"
-        )
-
-    with st.form(key="form_reps"):
-        cf1, cf2 = st.columns(2)
-        with cf1:
-            esp_reps = st.text_input(
-                "🩺 Especialidad / Servicio de Salud:",
-                value=cfg_saved_reps.get("esp_reps", ""),
-                placeholder="Ej: Enfermería, Medicina General, Fisioterapia, Terapia Ocupacional, Fonoaudiología..."
-            )
-        with cf2:
-            nombre_query_reps = st.text_input(
-                "👤 Búsqueda por Nombre / NIT / Cédula del Profesional:",
-                value=cfg_saved_reps.get("nombre_query_reps", ""),
-                placeholder="Ej: Juan Pérez, 1018..., Dra. María..."
-            )
-
-        btn_reps = st.form_submit_button(
-            label="🏥 CONSULTAR PROFESIONALES HABILITADOS EN REPS",
-            use_container_width=True,
-            type="primary"
-        )
-
-    if btn_reps:
-        st.session_state["ejecutado_reps"] = True
-        st.session_state["filtros_guardados_reps"] = {
-            "dptos_reps": dptos_reps,
-            "ciudades_reps": ciudades_reps,
-            "esp_reps": esp_reps,
-            "nombre_query_reps": nombre_query_reps
-        }
-
-    if st.session_state.get("ejecutado_reps"):
-        cfg_r = st.session_state.get("filtros_guardados_reps", {})
-
-        with st.spinner("🏥 Consultando profesionales independientes en la base de datos del REPS (Minsalud / Datos Abiertos)..."):
-            df_reps = descargar_reps_profesionales_domiciliarios(
-                dptos_sel=cfg_r.get("dptos_reps", []),
-                ciudades_sel=cfg_r.get("ciudades_reps", []),
-                especialidad_query=cfg_r.get("esp_reps", ""),
-                limite=3000
-            )
-
-        if not df_reps.empty:
-            if cfg_r.get("nombre_query_reps", "").strip():
-                kw_nom = normalizar_texto(cfg_r.get("nombre_query_reps", ""))
-                df_reps = df_reps[
-                    df_reps['nombre_profesional'].apply(normalizar_texto).str.contains(kw_nom) |
-                    df_reps['identificacion'].astype(str).str.contains(kw_nom)
-                ]
-
-            m_r1, m_r2, m_r3 = st.columns(3)
-            with m_r1:
-                st.metric("👨‍⚕️ Total Profesionales Habilitados", f"{len(df_reps):,} profesionales")
-            with m_r2:
-                cant_muni = df_reps['municipio'].nunique() if 'municipio' in df_reps.columns else 0
-                st.metric("📍 Municipios con Oferta", f"{cant_muni} municipios")
-            with m_r3:
-                st.metric("🏥 Modalidad Registrada", "Extramural - Domiciliaria")
-
-            st.divider()
-            st.markdown("#### 🌟 Profesionales Independientes Destacados")
-
-            for idx, r_rep in df_reps.head(5).iterrows():
-                st.markdown(f"""
-                <div class="opportunity-card" style="border-left-color: #0284C7;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="card-title">👨‍⚕️ {r_rep.get('nombre_profesional', 'Profesional de Salud')}</span>
-                        <span class="card-badge" style="background-color:#E0F2FE; color:#0369A1;">🆔 REPS: {r_rep.get('codigo_habilitacion', 'Habilitado')}</span>
-                    </div>
-                    <div style="margin-top:10px; font-size:1.02rem; color:#1E293B;">
-                        🩺 <b>Servicio / Especialidad:</b> {r_rep.get('servicio_especialidad', 'Atención Domiciliaria')}
-                    </div>
-                    <div style="margin-top:8px; font-size:0.88rem; color:#475569;">
-                        📍 <b>Ubicación:</b> {r_rep.get('municipio', 'N/I')}, {r_rep.get('departamento', 'N/I')} | 
-                        🏠 <b>Modalidad:</b> {r_rep.get('modalidad', 'Domiciliaria')} | 
-                        📞 <b>Contacto:</b> {r_rep.get('telefono', 'N/I')} | ✉️ <b>Email:</b> {r_rep.get('email', 'N/I')}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.divider()
-
-            st.markdown(f"#### 📋 Directorio Completo REPS Domiciliario ({len(df_reps)} Registros)")
-            cols_reps_view = {
-                'nombre_profesional': 'Nombre del Profesional',
-                'identificacion': 'NIT / Cédula',
-                'departamento': 'Departamento',
-                'municipio': 'Municipio',
-                'servicio_especialidad': 'Especialidad / Servicio',
-                'modalidad': 'Modalidad',
-                'telefono': 'Teléfono',
-                'email': 'Correo Electrónico',
-                'direccion': 'Dirección',
-                'codigo_habilitacion': 'Código Habilitación REPS'
+            cols_gold_map = {
+                'entidad': 'Entidad Estatal',
+                'ciudad_entidad': 'Municipio',
+                'nombre_del_procedimiento': 'Objeto del Proceso',
+                'precio_formateado': 'Presupuesto Base ($ COP)',
+                'proponentes_estimados': 'Proponentes Estimados',
+                'probabilidad_ganar_pct': '% Probabilidad Éxito',
+                'visualizaciones': 'Número de Visualizaciones SECOP II',
+                'urlproceso': 'Link SECOP II'
             }
-            cols_pres = [c for c in cols_reps_view.keys() if c in df_reps.columns]
-            df_reps_view = df_reps[cols_pres].rename(columns={c: cols_reps_view[c] for c in cols_pres})
+            cols_gold_view = [c for c in cols_gold_map.keys() if c in df_g.columns]
+            df_g_show = df_g[cols_gold_view].rename(columns={c: cols_gold_map[c] for c in cols_gold_map if c in df_g.columns})
+            st.dataframe(df_g_show, use_container_width=True)
 
-            st.dataframe(df_reps_view, use_container_width=True)
-
-            excel_reps = exportar_df_a_excel(df_reps, 'Directorio_REPS_Domiciliarios')
-            st.download_button(
-                "📥 Exportar Directorio REPS Domiciliario a Excel (.xlsx)",
-                data=excel_reps,
-                file_name=f"directorio_reps_domiciliario_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-            )
-        else:
-            st.warning("⚠️ No se encontraron profesionales independientes habilitados en REPS que coincidan con los criterios seleccionados.")
-
+            excel_gold = exportar_df_a_excel(df_g_show, 'Oportunidades_de_Oro')
+            st.download_button("📥 Exportar Lista Corta de Oro a Excel (.xlsx)", data=excel_gold, file_name="oportunidades_de_oro_vlao_2026.xlsx")
