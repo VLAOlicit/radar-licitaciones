@@ -280,21 +280,38 @@ def get_soda_location_conditions(field_name, sel_list):
     for val in sel_list:
         if not val or val == 'TODOS':
             continue
-        v_raw = str(val).lower().strip()
-        nfkd = unicodedata.normalize('NFD', str(val))
-        v_no_tilde = ''.join([c for c in nfkd if unicodedata.category(c) != 'Mn']).lower().strip()
-        
-        sub_or = []
-        if v_raw:
-            sub_or.append(f"lower({field_name}) = '{v_raw}'")
-            sub_or.append(f"lower({field_name}) like '{v_raw}%'")
-        if v_no_tilde and v_no_tilde != v_raw:
-            sub_or.append(f"lower({field_name}) = '{v_no_tilde}'")
-            sub_or.append(f"lower({field_name}) like '{v_no_tilde}%'")
-            
-        if sub_or:
-            conds.append(f"({' OR '.join(sub_or)})")
+        v_norm = normalizar_texto(val)
+        v_clean = re.sub(r'[^a-z]', '', v_norm)
+        root = v_clean[:5] if len(v_clean) >= 4 else v_clean
+        if root:
+            conds.append(f"lower({field_name}) like '%{root}%'")
     return conds
+
+def match_unspsc_segment(val_cat, sector_codigo):
+    if not sector_codigo or sector_codigo == "TODOS":
+        return True
+    val_str = str(val_cat).strip()
+    if not val_str:
+        return False
+    if sector_codigo == "VLAO_COMBINADO":
+        return any(s in val_str for s in SECTORES_VLAO_SEGMENTOS)
+    cods = sector_codigo.split('|')
+    return any(c in val_str for c in cods)
+
+def evaluar_proceso_vigente(row):
+    f_cierre = row.get('fecha_cierre_dt', pd.NaT)
+    est = normalizar_texto(row.get('estado_resumen', ''))
+    fase = normalizar_texto(row.get('fase', ''))
+    
+    estados_cerrados = ['adjudic', 'cerrad', 'celebrad', 'desiert', 'cancelad', 'terminad', 'liquidad', 'evaluac']
+    if any(e in est for e in estados_cerrados) or any(e in fase for e in estados_cerrados):
+        return False
+        
+    hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    if pd.notna(f_cierre) and f_cierre < hoy:
+        return False
+        
+    return True
 
 def match_location(val_from_dataset, list_selected):
     if not list_selected:
@@ -529,6 +546,13 @@ def descargar_secop_2026(
             f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'",
             "(lower(modalidad_de_contratacion) not like '%directa%' and lower(modalidad_de_contratacion) not like '%direct%')"
         ]
+        if dptos_sel:
+            c_dptos = get_soda_location_conditions('departamento_entidad', dptos_sel)
+            if c_dptos:
+                conds_fb.append(f"({' OR '.join(c_dptos)})")
+        if sector_codigo != "TODOS" and sector_codigo != "VLAO_COMBINADO":
+            conds_fb.append(f"codigo_principal_de_categoria like '%{sector_codigo}%'")
+
         params_fb = {
             "$select": select_cols,
             "$where": " AND ".join(conds_fb),
@@ -889,6 +913,12 @@ with tab1:
             placeholder="Ej: cubierta, ferretería, mantenimiento, redes, impermeabilización, consultoría..."
         )
 
+        solo_vigentes_t1 = st.checkbox(
+            "🟢 Mostrar únicamente convocatorias VIGENTES / ABIERTAS (Excluir ofertas vencidas o cerradas)",
+            value=cfg_saved.get("solo_vigentes_t1", True),
+            help="Oculta automáticamente los procesos cuya fecha de cierre de ofertas ya pasó o que ya fueron adjudicados."
+        )
+
         st.markdown("---")
         btn_buscar_t1 = st.form_submit_button(
             label="🚀 BUSCAR OPORTUNIDADES ACTIVAS EN SECOP II",
@@ -909,7 +939,8 @@ with tab1:
             "estado_sel": estado_sel,
             "fase_sel": fase_sel,
             "ventana_tiempo": ventana_tiempo,
-            "palabra_clave": palabra_clave
+            "palabra_clave": palabra_clave,
+            "solo_vigentes_t1": solo_vigentes_t1
         }
 
     if st.session_state.get("ejecutado_t1"):
@@ -951,11 +982,19 @@ with tab1:
             if cfg.get("ciudades_sel") and 'ciudad_entidad' in df.columns:
                 df = df[df['ciudad_entidad'].apply(lambda val: match_location(val, cfg.get("ciudades_sel")))]
 
+            # Filtrado por Segmento UNSPSC en Python
+            if cod_sector != "TODOS" and 'codigo_principal_de_categoria' in df.columns:
+                df = df[df['codigo_principal_de_categoria'].apply(lambda val: match_unspsc_segment(val, cod_sector))]
+
             if cfg.get("tipo_contrato_sel_list") and 'tipo_de_contrato' in df.columns:
                 df = df[df['tipo_de_contrato'].apply(lambda val: match_tipo_contrato_multi(val, cfg.get("tipo_contrato_sel_list")))]
 
             if cfg.get("modalidad_sel_list") and 'modalidad_de_contratacion' in df.columns:
                 df = df[df['modalidad_de_contratacion'].apply(lambda val: match_modalidad_multi(val, cfg.get("modalidad_sel_list")))]
+
+            # Filtrado de solo vigentes / abiertas
+            if cfg.get("solo_vigentes_t1", True):
+                df = df[df.apply(evaluar_proceso_vigente, axis=1)]
 
             val_min_p = cfg.get("monto_min_m", 0.0) * 1000000
             val_max_p = cfg.get("monto_max_m", 0.0) * 1000000
@@ -1475,4 +1514,3 @@ with tab5:
 
             excel_gold = exportar_df_a_excel(df_g_show, 'Oportunidades_de_Oro')
             st.download_button("📥 Exportar Lista Corta de Oro a Excel (.xlsx)", data=excel_gold, file_name="oportunidades_de_oro_vlao_2026.xlsx")
-
