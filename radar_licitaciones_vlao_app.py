@@ -249,10 +249,11 @@ FASES_LISTA = [
 ]
 
 VENTANAS_LISTA = [
+    "Todos los Registros / Histórico Reciente",
     "Últimos 30 días",
     "Últimos 60 días",
     "Últimos 90 días",
-    "Todo el Año 2026"
+    "Año 2025 - 2026"
 ]
 
 MESES_COLOMBIA = [
@@ -469,13 +470,6 @@ def descargar_secop_2026(
 ):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     
-    # Ventana de tiempo dinámica (consistente con el año en curso y descargas históricas)
-    if dias_ventana and dias_ventana < 365:
-        fecha_inicio_filtro = (datetime.now() - timedelta(days=dias_ventana)).strftime("%Y-%m-%dT00:00:00")
-    else:
-        # Por defecto descarga masiva de procesos recientes (últimos 365 días)
-        fecha_inicio_filtro = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%dT00:00:00")
-
     select_cols = (
         "referencia_del_proceso,entidad,departamento_entidad,ciudad_entidad,"
         "codigo_principal_de_categoria,nombre_del_procedimiento,descripci_n_del_procedimiento,"
@@ -483,16 +477,25 @@ def descargar_secop_2026(
         "fecha_de_publicacion_del,fecha_de_ultima_publicaci,fecha_de_recepcion_de,urlproceso"
     )
 
-    # Consulta inteligente con filtrado de Ubicación (Departamento / Ciudad) en SODA API
-    condiciones = [f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'"]
+    condiciones = []
+    # Solamente limitar fecha si la ventana es explícita de corto plazo (30, 60, 90 días)
+    if dias_ventana and dias_ventana in [30, 60, 90]:
+        f_inicio = (datetime.now() - timedelta(days=dias_ventana)).strftime("%Y-%m-%dT00:00:00")
+        condiciones.append(f"fecha_de_publicacion_del >= '{f_inicio}'")
+    else:
+        # Por defecto abarcar rango amplio desde 2024 para no perder ninguna licitación
+        condiciones.append("fecha_de_publicacion_del >= '2024-01-01T00:00:00'")
+
     condiciones.append("(lower(modalidad_de_contratacion) not like '%directa%' and lower(modalidad_de_contratacion) not like '%direct%')")
 
     if ciudades_sel:
         sub_c = []
         for c in ciudades_sel:
+            if not c:
+                continue
             c_norm = normalizar_texto(c)
             c_clean = re.sub(r'[^a-z]', '', c_norm)
-            root = c_clean[:5] if len(c_clean) >= 4 else c_clean
+            root = c_clean[:4] if len(c_clean) >= 4 else c_clean
             if root:
                 sub_c.append(f"lower(ciudad_entidad) like '%{root}%'")
         if sub_c:
@@ -500,9 +503,11 @@ def descargar_secop_2026(
     elif dptos_sel:
         sub_d = []
         for d in dptos_sel:
+            if not d:
+                continue
             d_norm = normalizar_texto(d)
             d_clean = re.sub(r'[^a-z]', '', d_norm)
-            root = d_clean[:5] if len(d_clean) >= 4 else d_clean
+            root = d_clean[:4] if len(d_clean) >= 4 else d_clean
             if root:
                 sub_d.append(f"lower(departamento_entidad) like '%{root}%'")
         if sub_d:
@@ -523,16 +528,41 @@ def descargar_secop_2026(
         resp = requests.get(url, headers=headers, timeout=35)
         if resp.status_code == 200:
             data = resp.json()
-        else:
-            # Fallback ultra-estable sin WHERE
+        
+        # Si la consulta con WHERE refinado devuelve 0 registros, intentar fallback por ciudad/depto sin restricción de fecha
+        if not data and (ciudades_sel or dptos_sel):
+            conds_fb = []
+            if ciudades_sel:
+                sub_c = [f"lower(ciudad_entidad) like '%{re.sub(r'[^a-z]', '', normalizar_texto(c))[:4]}%'" for c in ciudades_sel if c]
+                if sub_c:
+                    conds_fb.append(f"({' OR '.join(sub_c)})")
+            elif dptos_sel:
+                sub_d = [f"lower(departamento_entidad) like '%{re.sub(r'[^a-z]', '', normalizar_texto(d))[:4]}%'" for d in dptos_sel if d]
+                if sub_d:
+                    conds_fb.append(f"({' OR '.join(sub_d)})")
+            
             params_fb = {
                 "$select": select_cols,
                 "$order": "fecha_de_publicacion_del DESC",
                 "$limit": str(limite)
             }
+            if conds_fb:
+                params_fb["$where"] = " AND ".join(conds_fb)
+
             resp_fb = requests.get(f"{base_url}?{urllib.parse.urlencode(params_fb)}", headers=headers, timeout=35)
             if resp_fb.status_code == 200:
                 data = resp_fb.json()
+
+        # Si aún sigue vacío, traer los procesos más recientes del país para filtrar en Python
+        if not data:
+            params_gen = {
+                "$select": select_cols,
+                "$order": "fecha_de_publicacion_del DESC",
+                "$limit": str(limite)
+            }
+            resp_gen = requests.get(f"{base_url}?{urllib.parse.urlencode(params_gen)}", headers=headers, timeout=35)
+            if resp_gen.status_code == 200:
+                data = resp_gen.json()
     except Exception:
         data = []
 
@@ -952,11 +982,15 @@ with tab1:
             if 'modalidad_de_contratacion' in df.columns:
                 df = df[~df['modalidad_de_contratacion'].apply(lambda val: 'directa' in normalizar_texto(val))]
 
-            if cfg.get("dptos_sel") and 'departamento_entidad' in df.columns:
-                df = df[df['departamento_entidad'].apply(lambda val: match_location(val, cfg.get("dptos_sel")))]
-
-            if cfg.get("ciudades_sel") and 'ciudad_entidad' in df.columns:
-                df = df[df['ciudad_entidad'].apply(lambda val: match_location(val, cfg.get("ciudades_sel")))]
+            # Filtrado inteligente de Ubicación en Python
+            c_list = cfg.get("ciudades_sel", [])
+            d_list = cfg.get("dptos_sel", [])
+            if c_list and d_list:
+                df = df[df['ciudad_entidad'].apply(lambda val: match_location(val, c_list)) | df['departamento_entidad'].apply(lambda val: match_location(val, d_list))]
+            elif c_list:
+                df = df[df['ciudad_entidad'].apply(lambda val: match_location(val, c_list))]
+            elif d_list:
+                df = df[df['departamento_entidad'].apply(lambda val: match_location(val, d_list))]
 
             # Filtrado por Segmento UNSPSC en Python
             if cod_sector != "TODOS" and 'codigo_principal_de_categoria' in df.columns:
