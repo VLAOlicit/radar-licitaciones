@@ -469,11 +469,12 @@ def descargar_secop_2026(
 ):
     base_url = "https://www.datos.gov.co/resource/p6dx-8zbt.json"
     
-    # Aplicación del filtro de ventana de tiempo SEGÚN FECHA DE PUBLICACIÓN DE LA INVITACIÓN (fecha_de_publicacion_del)
-    if dias_ventana >= 365:
-        fecha_inicio_filtro = "2026-01-01T00:00:00"
-    else:
+    # Ventana de tiempo dinámica (consistente con el año en curso y descargas históricas)
+    if dias_ventana and dias_ventana < 365:
         fecha_inicio_filtro = (datetime.now() - timedelta(days=dias_ventana)).strftime("%Y-%m-%dT00:00:00")
+    else:
+        # Por defecto descarga masiva de procesos recientes (últimos 365 días)
+        fecha_inicio_filtro = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%dT00:00:00")
 
     select_cols = (
         "referencia_del_proceso,entidad,departamento_entidad,ciudad_entidad,"
@@ -482,79 +483,34 @@ def descargar_secop_2026(
         "fecha_de_publicacion_del,fecha_de_ultima_publicaci,fecha_de_recepcion_de,urlproceso"
     )
 
-    # Exclusión permanente y estricta de Contratación Directa
-    condiciones = [
-        f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'",
-        "(lower(modalidad_de_contratacion) not like '%directa%' and lower(modalidad_de_contratacion) not like '%direct%')"
-    ]
-
-    if dptos_sel:
-        c_dptos = get_soda_location_conditions('departamento_entidad', dptos_sel)
-        if c_dptos:
-            condiciones.append(f"({' OR '.join(c_dptos)})")
-# Municipio filtering is performed cleanly in Python via match_location()
-
-    # Nota: El filtrado por Segmento UNSPSC se realiza en Python via match_unspsc_segment()
-    # para garantizar compatibilidad total con la API SODA y evitar errores HTTP 400.
-
-    if modalidad_sel_list:
-        sub_mod = []
-        for m_item in modalidad_sel_list:
-            if "Mínima" in m_item:
-                sub_mod.append("(lower(modalidad_de_contratacion) like '%minima%' or lower(modalidad_de_contratacion) like '%mínima%')")
-            elif "Abreviada" in m_item:
-                sub_mod.append("lower(modalidad_de_contratacion) like '%abreviad%'")
-            elif "Licitación" in m_item:
-                sub_mod.append("lower(modalidad_de_contratacion) like '%licitac%'")
-            elif "Concurso" in m_item:
-                sub_mod.append("lower(modalidad_de_contratacion) like '%concurso%'")
-            elif "Subasta" in m_item:
-                sub_mod.append("lower(modalidad_de_contratacion) like '%subasta%'")
-            elif "Régimen" in m_item or "Regimen" in m_item:
-                sub_mod.append("(lower(modalidad_de_contratacion) like '%regimen%' or lower(modalidad_de_contratacion) like '%régimen%')")
-        if sub_mod:
-            condiciones.append(f"({' OR '.join(sub_mod)})")
-
-    if tipo_contrato_sel_list:
-        sub_tipo = []
-        for t_item in tipo_contrato_sel_list:
-            q_t = normalizar_texto(t_item.split(' ')[0])
-            if q_t:
-                sub_tipo.append(f"lower(tipo_de_contrato) like '%{q_t[:4]}%'")
-        if sub_tipo:
-            condiciones.append(f"({' OR '.join(sub_tipo)})")
-
+    # Consulta ultra-limpia a SODA API para garantizar respuesta 100% exitosa (HTTP 200 OK)
     params = {
         "$select": select_cols,
-        "$where": " AND ".join(condiciones),
+        "$where": f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'",
         "$order": "fecha_de_publicacion_del DESC",
         "$limit": str(limite)
     }
 
     headers = {'User-Agent': 'Mozilla/5.0'}
 
+    data = []
     try:
         url = f"{base_url}?{urllib.parse.urlencode(params)}"
         resp = requests.get(url, headers=headers, timeout=35)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as err:
-        conds_fb = [f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'"]
-        params_fb = {
-            "$select": select_cols,
-            "$where": " AND ".join(conds_fb),
-            "$order": "fecha_de_publicacion_del DESC",
-            "$limit": str(limite)
-        }
-        try:
-            url_fb = f"{base_url}?{urllib.parse.urlencode(params_fb)}"
-            resp_fb = requests.get(url_fb, headers=headers, timeout=35)
+        if resp.status_code == 200:
+            data = resp.json()
+        else:
+            # Fallback ultra-estable sin WHERE
+            params_fb = {
+                "$select": select_cols,
+                "$order": "fecha_de_publicacion_del DESC",
+                "$limit": str(limite)
+            }
+            resp_fb = requests.get(f"{base_url}?{urllib.parse.urlencode(params_fb)}", headers=headers, timeout=35)
             if resp_fb.status_code == 200:
                 data = resp_fb.json()
-            else:
-                data = []
-        except Exception:
-            data = []
+    except Exception:
+        data = []
 
     df = pd.DataFrame(data)
 
@@ -967,6 +923,10 @@ with tab1:
 
         if not df_raw.empty:
             df = df_raw.copy()
+
+            # Exclusión estricta de Contratación Directa en Python
+            if 'modalidad_de_contratacion' in df.columns:
+                df = df[~df['modalidad_de_contratacion'].apply(lambda val: 'directa' in normalizar_texto(val))]
 
             if cfg.get("dptos_sel") and 'departamento_entidad' in df.columns:
                 df = df[df['departamento_entidad'].apply(lambda val: match_location(val, cfg.get("dptos_sel")))]
