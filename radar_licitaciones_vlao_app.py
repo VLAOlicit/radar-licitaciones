@@ -483,10 +483,34 @@ def descargar_secop_2026(
         "fecha_de_publicacion_del,fecha_de_ultima_publicaci,fecha_de_recepcion_de,urlproceso"
     )
 
-    # Consulta ultra-limpia a SODA API para garantizar respuesta 100% exitosa (HTTP 200 OK)
+    # Consulta inteligente con filtrado de Ubicación (Departamento / Ciudad) en SODA API
+    condiciones = [f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'"]
+    condiciones.append("(lower(modalidad_de_contratacion) not like '%directa%' and lower(modalidad_de_contratacion) not like '%direct%')")
+
+    if ciudades_sel:
+        sub_c = []
+        for c in ciudades_sel:
+            c_norm = normalizar_texto(c)
+            c_clean = re.sub(r'[^a-z]', '', c_norm)
+            root = c_clean[:5] if len(c_clean) >= 4 else c_clean
+            if root:
+                sub_c.append(f"lower(ciudad_entidad) like '%{root}%'")
+        if sub_c:
+            condiciones.append(f"({' OR '.join(sub_c)})")
+    elif dptos_sel:
+        sub_d = []
+        for d in dptos_sel:
+            d_norm = normalizar_texto(d)
+            d_clean = re.sub(r'[^a-z]', '', d_norm)
+            root = d_clean[:5] if len(d_clean) >= 4 else d_clean
+            if root:
+                sub_d.append(f"lower(departamento_entidad) like '%{root}%'")
+        if sub_d:
+            condiciones.append(f"({' OR '.join(sub_d)})")
+
     params = {
         "$select": select_cols,
-        "$where": f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'",
+        "$where": " AND ".join(condiciones),
         "$order": "fecha_de_publicacion_del DESC",
         "$limit": str(limite)
     }
