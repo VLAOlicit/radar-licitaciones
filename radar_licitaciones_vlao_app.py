@@ -10,7 +10,7 @@ import requests
 import streamlit as st
 
 # ==============================================================================
-# CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO MULTI-SUITE (V20.0)
+# CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO MULTI-SUITE (V22.0)
 # ==============================================================================
 st.set_page_config(
     page_title="BID WIN VLAO - Suite de Inteligencia Licitatoria y Presupuestal 2026",
@@ -291,26 +291,29 @@ def match_unspsc_segment(val_cat, sector_codigo):
     if not sector_codigo or sector_codigo == "TODOS":
         return True
     val_str = str(val_cat).strip()
-    if not val_str:
+    if not val_str or val_str.lower() in ['none', 'nan', 'null', 'nat', '']:
         return False
+    val_clean = re.sub(r'^[vV]\d+\.?', '', val_str)
     if sector_codigo == "VLAO_COMBINADO":
-        return any(s in val_str for s in SECTORES_VLAO_SEGMENTOS)
+        return any(val_clean.startswith(s) or s in val_str for s in SECTORES_VLAO_SEGMENTOS)
     cods = sector_codigo.split('|')
-    return any(c in val_str for c in cods)
+    return any(val_clean.startswith(c) or c in val_str for c in cods)
 
 def evaluar_proceso_vigente(row):
     f_cierre = row.get('fecha_cierre_dt', pd.NaT)
     est = normalizar_texto(row.get('estado_resumen', ''))
     fase = normalizar_texto(row.get('fase', ''))
     
-    estados_cerrados = ['adjudic', 'cerrad', 'celebrad', 'desiert', 'cancelad', 'terminad', 'liquidad', 'evaluac']
+    estados_cerrados = ['adjudic', 'cerrad', 'celebrad', 'desiert', 'cancelad', 'terminad', 'liquidad']
     if any(e in est for e in estados_cerrados) or any(e in fase for e in estados_cerrados):
         return False
         
     hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     if pd.notna(f_cierre) and f_cierre < hoy:
-        return False
-        
+        fases_activas = ['convocatoria', 'oferta', 'presentacion', 'publicad', 'selecc', 'borrador', 'planeac']
+        if not (any(a in est for a in fases_activas) or any(a in fase for a in fases_activas)):
+            return False
+            
     return True
 
 def match_location(val_from_dataset, list_selected):
@@ -491,14 +494,8 @@ def descargar_secop_2026(
             condiciones.append(f"({' OR '.join(c_dptos)})")
 # Municipio filtering is performed cleanly in Python via match_location()
 
-    # Filtrado por Segmento UNSPSC (2 dígitos)
-    if sector_codigo == "VLAO_COMBINADO":
-        sub_c = [f"codigo_principal_de_categoria like '%{s}%'" for s in SECTORES_VLAO_SEGMENTOS]
-        condiciones.append(f"({' OR '.join(sub_c)})")
-    elif sector_codigo != "TODOS":
-        cods = sector_codigo.split('|')
-        sub_c = [f"codigo_principal_de_categoria like '%{c}%'" for c in cods]
-        condiciones.append(f"({' OR '.join(sub_c)})")
+    # Nota: El filtrado por Segmento UNSPSC se realiza en Python via match_unspsc_segment()
+    # para garantizar compatibilidad total con la API SODA y evitar errores HTTP 400.
 
     if modalidad_sel_list:
         sub_mod = []
@@ -541,28 +538,23 @@ def descargar_secop_2026(
         resp = requests.get(url, headers=headers, timeout=35)
         resp.raise_for_status()
         data = resp.json()
-    except Exception:
-        conds_fb = [
-            f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'",
-            "(lower(modalidad_de_contratacion) not like '%directa%' and lower(modalidad_de_contratacion) not like '%direct%')"
-        ]
-        if dptos_sel:
-            c_dptos = get_soda_location_conditions('departamento_entidad', dptos_sel)
-            if c_dptos:
-                conds_fb.append(f"({' OR '.join(c_dptos)})")
-        if sector_codigo != "TODOS" and sector_codigo != "VLAO_COMBINADO":
-            conds_fb.append(f"codigo_principal_de_categoria like '%{sector_codigo}%'")
-
+    except Exception as err:
+        conds_fb = [f"fecha_de_publicacion_del >= '{fecha_inicio_filtro}'"]
         params_fb = {
             "$select": select_cols,
             "$where": " AND ".join(conds_fb),
             "$order": "fecha_de_publicacion_del DESC",
             "$limit": str(limite)
         }
-        url_fb = f"{base_url}?{urllib.parse.urlencode(params_fb)}"
-        resp = requests.get(url_fb, headers=headers, timeout=35)
-        resp.raise_for_status()
-        data = resp.json()
+        try:
+            url_fb = f"{base_url}?{urllib.parse.urlencode(params_fb)}"
+            resp_fb = requests.get(url_fb, headers=headers, timeout=35)
+            if resp_fb.status_code == 200:
+                data = resp_fb.json()
+            else:
+                data = []
+        except Exception:
+            data = []
 
     df = pd.DataFrame(data)
 
@@ -915,7 +907,7 @@ with tab1:
 
         solo_vigentes_t1 = st.checkbox(
             "🟢 Mostrar únicamente convocatorias VIGENTES / ABIERTAS (Excluir ofertas vencidas o cerradas)",
-            value=cfg_saved.get("solo_vigentes_t1", True),
+            value=cfg_saved.get("solo_vigentes_t1", False),
             help="Oculta automáticamente los procesos cuya fecha de cierre de ofertas ya pasó o que ya fueron adjudicados."
         )
 
@@ -993,7 +985,7 @@ with tab1:
                 df = df[df['modalidad_de_contratacion'].apply(lambda val: match_modalidad_multi(val, cfg.get("modalidad_sel_list")))]
 
             # Filtrado de solo vigentes / abiertas
-            if cfg.get("solo_vigentes_t1", True):
+            if cfg.get("solo_vigentes_t1", False):
                 df = df[df.apply(evaluar_proceso_vigente, axis=1)]
 
             val_min_p = cfg.get("monto_min_m", 0.0) * 1000000
