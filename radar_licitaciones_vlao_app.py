@@ -10,7 +10,7 @@ import requests
 import streamlit as st
 
 # ==============================================================================
-# CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO MULTI-SUITE (V19.0)
+# CONFIGURACIÓN DE PÁGINA Y ESTILOS - BID WIN VLAO MULTI-SUITE (V20.0)
 # ==============================================================================
 st.set_page_config(
     page_title="BID WIN VLAO - Suite de Inteligencia Licitatoria y Presupuestal 2026",
@@ -850,24 +850,21 @@ with tab1:
                 index=idx_sec
             )
 
-        st.markdown("##### 💰 Rangos de Presupuesto ($ COP - Digite libremente desde $1 COP)")
+        st.markdown("##### 💰 Rangos de Presupuesto (Millones COP)")
         cm1, cm2 = st.columns(2)
         with cm1:
-            # 4. Digitar libremente presupuesto desde $1 COP
-            monto_min_cop = st.number_input(
-                "💵 Presupuesto Mínimo ($ COP - digite desde $1):",
+            monto_min_m = st.number_input(
+                "💵 Valor Mínimo Presupuesto (Millones COP):",
                 min_value=0.0,
-                value=float(cfg_saved.get("monto_min_cop", 0.0)),
-                step=100000.0,
-                format="%.0f"
+                value=float(cfg_saved.get("monto_min_m", 0.0)),
+                step=10.0
             )
         with cm2:
-            monto_max_cop = st.number_input(
-                "💵 Presupuesto Máximo ($ COP - digite valor o 0 para sin límite):",
+            monto_max_m = st.number_input(
+                "💵 Valor Máximo Presupuesto (Millones COP - 0 sin límite):",
                 min_value=0.0,
-                value=float(cfg_saved.get("monto_max_cop", 0.0)),
-                step=1000000.0,
-                format="%.0f"
+                value=float(cfg_saved.get("monto_max_m", 0.0)),
+                step=50.0
             )
 
         c6, c7, c8 = st.columns(3)
@@ -906,8 +903,8 @@ with tab1:
             "ciudades_sel": ciudades_sel,
             "modalidad_sel_list": modalidad_sel_list,
             "tipo_contrato_sel_list": tipo_contrato_sel_list,
-            "monto_min_cop": monto_min_cop,
-            "monto_max_cop": monto_max_cop,
+            "monto_min_m": monto_min_m,
+            "monto_max_m": monto_max_m,
             "sector_sel": sector_sel,
             "estado_sel": estado_sel,
             "fase_sel": fase_sel,
@@ -960,8 +957,8 @@ with tab1:
             if cfg.get("modalidad_sel_list") and 'modalidad_de_contratacion' in df.columns:
                 df = df[df['modalidad_de_contratacion'].apply(lambda val: match_modalidad_multi(val, cfg.get("modalidad_sel_list")))]
 
-            val_min_p = cfg.get("monto_min_cop", 0.0)
-            val_max_p = cfg.get("monto_max_cop", 0.0)
+            val_min_p = cfg.get("monto_min_m", 0.0) * 1000000
+            val_max_p = cfg.get("monto_max_m", 0.0) * 1000000
             if val_min_p > 0 and 'precio_num' in df.columns:
                 df = df[df['precio_num'] >= val_min_p]
             if val_max_p > 0 and 'precio_num' in df.columns:
@@ -1400,7 +1397,7 @@ with tab5:
 
         cg3, cg4 = st.columns(2)
         with cg3:
-            monto_min_gold_cop = st.number_input("💵 Presupuesto Mínimo ($ COP):", min_value=0.0, value=30000000.0, step=10000000.0, format="%.0f")
+            monto_min_gold_m = st.number_input("💵 Presupuesto Mínimo (Millones COP):", min_value=0.0, value=30.0, step=10.0)
         with cg4:
             max_competidores = st.slider("👥 Límite Estimado de Proponentes en Zona:", min_value=1, max_value=5, value=3, step=1)
 
@@ -1415,7 +1412,7 @@ with tab5:
 
         if not df_g_raw.empty:
             df_g = df_g_raw.copy()
-            val_min_g = monto_min_gold_cop
+            val_min_g = monto_min_gold_m * 1000000
             if 'precio_num' in df_g.columns:
                 df_g = df_g[df_g['precio_num'] >= val_min_g]
 
@@ -1478,3 +1475,4 @@ with tab5:
 
             excel_gold = exportar_df_a_excel(df_g_show, 'Oportunidades_de_Oro')
             st.download_button("📥 Exportar Lista Corta de Oro a Excel (.xlsx)", data=excel_gold, file_name="oportunidades_de_oro_vlao_2026.xlsx")
+
